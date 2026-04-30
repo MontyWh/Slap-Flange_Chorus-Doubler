@@ -40,7 +40,9 @@ private:
 
     juce::dsp::IIR::Filter<float> resonanceFilter; // BPF
 
-    double iMeasuredLength; // to later get the sample rate instead
+    float fSampleRate;
+	
+	int iMeasuredLength = fSampleRate; // to later get the sample rate instead
     int iMeasuredItems = 0;
     float fPeak = 0.0f; // initially there is no peak value
     float fGateGain = 0; // initially the gate is closed

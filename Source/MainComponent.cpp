@@ -181,7 +181,7 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
     spec.numChannels = deviceManager.getCurrentAudioDevice()->getActiveOutputChannels().countNumberOfSetBits(); // Get the number of active output channels from the audio device manager
 
 
-    iMeasuredLength = sampleRate;
+    fSampleRate = spec.sampleRate;
 
     float fOutGain = pow(parameters[1], 3.0);
     float fInGain = pow(parameters[0], 3.0);
@@ -235,55 +235,51 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     /*const float* pfBuffer0 = inputBuffers[0], * pfBuffer1 = inputBuffers[1];
     float* pfOutBuffer0 = outputBuffers[0], * pfOutBuffer1 = outputBuffers[1];*/
     auto* pfBuffer = bufferToFill.buffer;
-    std::vector<float> fIn(pfBuffer->getNumChannels());
-    std::vector<float> fOut(pfBuffer->getNumChannels());
+    std::vector<float*&> fIn(pfBuffer->getNumChannels());
+    std::vector<float*> fOut(pfBuffer->getNumChannels());
 
+    std::vector<float> fDry(pfBuffer->getNumChannels());
+    std::vector<float> fWet(pfBuffer->getNumChannels());
+
+    float fBand[4];
+    float fToneDistort[4];
 
         // Get sample from input
-        for (int ch = 0; ch < pfBuffer->getNumChannels(); ++ch)
+        for (int channel = 0; channel < pfBuffer->getNumChannels(); ++channel)
         {
-            float* channelData = buffer.getWritePointer(ch);
+            fDry[channel] = fIn[channel] = pfBuffer->getWritePointer(channel);
 
-            for (int s = 0; s < buffer.getNumSamples(); ++s)
+            for (int s = 0; s < pfBuffer->getNumSamples(); ++s)
             {
-                fIn[ch] = *pfBuffer++;
-
                 // Add your effect processing here
-
-                float fMix = (fIn0 + fIn1) / 2;
                 // monoMix = fFilter.tick(monoMix);
-                fDryStereo[s] = fIn0 * fInGain * NoiseGate(fFilter.tick(fMix), fGate, fGainReduc);
+                fDry[s] = fIn * fInGain * NoiseGate(fFilter.tick(fMix), fGate, fGainReduc);
 
-                fWetStereo[s] = resonanceFilter.tick(fDryStereo[0]) * mixDrop;
-                fWetStereo[1] = resonanceFilter.tick(fDryStereo[1]) * mixDrop;
+                fDry[s] = resonanceFilter.tick(fDry) * mixDrop;
 
                 for (int i = 0; i <= 1; i++) {
                     // Initialise bands for each channel
-                    fBand[0] = subBass.tick(fWetStereo[i] * control1);
-                    fBand[1] = (bassUpper.tick(fWetStereo[i] * control2) + bassLower.tick(fDryStereo[i] * control2));
-                    fBand[2] = (midUpper.tick(fWetStereo[i] * control3) + midLower.tick(fDryStereo[i] * control3));
-                    fBand[3] = treble.tick(fWetStereo[i] * control4);
+                	fBand[0] = subBass.tick(fWet[i] * control1);
+                    fBand[1] = (bassUpper.tick(fWet[i] * control2) + bassLower.tick(fDry[i] * control2));
+                    fBand[2] = (midUpper.tick(fWet[i] * control3) + midLower.tick(fDry[i] * control3));
+                    fBand[3] = treble.tick(fWet[i] * control4);
 
 
                     // Process each band if required
                     for (int j = 0; j <= 3; j++)
                     {
-                        fTonalDistortion[j] = ProcessDistortion(fBand[j], parameters[3 + j], parameters[2]);
+                        fToneDistort[j] = ProcessDistortion(fBand[j], parameters[3 + j], parameters[2]);
                     }
 
                     // Sum the processed bands
-                    fWetStereo[i] = fTonalDistortion[0] + fTonalDistortion[1] + fTonalDistortion[2] + fTonalDistortion[3];
-
-                    fWetStereo[i] = LoFiEffects(fWetStereo[i], parameters[14], fLoFiblend, numSamples, getSampleRate(), vinylCounter);
+                    fWet[s] = fToneDistort[0] + fToneDistort[1] + fToneDistort[2] + fToneDistort[3];
+                    fWet[s] = LoFiEffects(fWet[i], parameters[14], fLoFiblend, pfBuffer->getNumSamples(), fSampleRate, vinylCounter);
                 }
 
                 // Output calculation
-                fOut0 = (fWetStereo[0] * fWetDryControl) + (fDryStereo[0] * (1.0 - fWetDryControl));
-                fOut1 = (fWetStereo[1] * fWetDryControl) + (fDryStereo[1] * (1.0 - fWetDryControl));
-
+                fOut[s] = (fWet[s] * fWetDryControl) + (fDry[s] * (1.0 - fWetDryControl));
                 // Copy result to output
-                *pfOutBuffer0++ = fOut0 * fOutGain;
-                *pfOutBuffer1++ = fOut1 * fOutGain;
+                fOut[s] *= fOutGain;
         }
     }
 }
