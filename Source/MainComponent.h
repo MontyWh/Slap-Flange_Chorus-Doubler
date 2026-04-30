@@ -24,6 +24,9 @@ public:
     void paint (juce::Graphics& g) override;
     void resized() override;
 
+    //==============================================================================
+    float NoiseGate(float monoMix, float control, float fReduction);
+
 private:
     //==============================================================================
     // Your private member variables go here...
@@ -37,8 +40,8 @@ private:
 
     juce::dsp::IIR::Filter<float> resonanceFilter; // BPF
 
-    int iMeasuredLength; // to later get the sample rate instead
-    int iMeasuredItems = 0.0f;
+    double iMeasuredLength; // to later get the sample rate instead
+    int iMeasuredItems = 0;
     float fPeak = 0.0f; // initially there is no peak value
     float fGateGain = 0; // initially the gate is closed
     float fGateTarget = 0.0f; // the gate is opening/closing

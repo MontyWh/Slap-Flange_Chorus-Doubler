@@ -83,55 +83,6 @@ float ProcessDistortion(float input, int type, float control)
     return input;
 }
 
-float ProcessDistortion(float input, int type, float control)
-{
-    float inputGain = 1.0 + (pow(control, 3.0) * (25.0 - 1.0));
-
-    // Distortion types
-
-    if (type == 1)
-    {
-        input = SoftClip(input, inputGain);
-    }
-
-    else if (type == 2)
-    {
-        input = HardClip(input, inputGain);
-    }
-
-    else if (type == 3)
-    {
-        input = QuantisedDistortion(input, inputGain);
-    }
-
-    else if (type == 4)
-    {
-        input = RectifiedDistortion(input, inputGain);
-    }
-
-    else if (type == 5)
-    {
-        input = FoldingDistortion(input, inputGain);
-    }
-
-    else if (type == 6)
-    {
-        input = AsymmetricDistortion(input, inputGain);
-    }
-
-    else if (type == 7)
-    {
-        input = ParabolicDistortion(input, inputGain);
-    }
-
-    else if (type == 8)
-    {
-        input = QuarterCircleDistortion(input, inputGain);
-    }
-
-    return input;
-}
-
 //==============================================================================
 float LoFiEffects(float input, int type, float control, float numOfSamples, float fSR, int counter)
 {
@@ -163,7 +114,7 @@ float LoFiEffects(float input, int type, float control, float numOfSamples, floa
 }
 
 //==============================================================================
-float MyEffect::NoiseGate(float monoMix, float control, float fReduction)
+float MainComponent::NoiseGate(float monoMix, float control, float fReduction)
 {
     float fThresh = control;
     bool meterCounterCondition = false;
@@ -224,29 +175,51 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
 
     // For more details, see the help for AudioProcessor::prepareToPlay()
 
-    iMeasuredLength = sampleRate;
-
     juce::dsp::ProcessSpec spec;
     spec.sampleRate = sampleRate;
-    spec.maximumBlockSize = samplesPerBlock;
-    spec.numChannels = getTotalNumOutputChannels();
+    spec.maximumBlockSize = samplesPerBlockExpected;
+    spec.numChannels = deviceManager.getCurrentAudioDevice()->getActiveOutputChannels().countNumberOfSetBits(); // Get the number of active output channels from the audio device manager
 
-    subBass.prepare(spec);
-    bassLower.prepare(spec);
-    bassUpper.prepare(spec);
-    midLower.prepare(spec);
-    midUpper.prepare(spec);
-    treble.prepare(spec);
 
-    // Assign coefficients directly here (no helper functions)
-    subBass.coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, 60.0f);
-    bassLower.coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, 120.0f);
-    bassUpper.coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, 120.0f);
+    iMeasuredLength = sampleRate;
 
-    midLower.coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, 1000.0f);
-    midUpper.coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, 1000.0f);
+    float fOutGain = pow(parameters[1], 3.0);
+    float fInGain = pow(parameters[0], 3.0);
 
-    treble.coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, 6000.0f);
+    float fWetStereo[2];
+    float fDryStereo[2];
+    float fBand[4];
+    float fTonalDistortion[4];
+
+    float control1 = pow(parameters[7], 3);
+    float control2 = pow(parameters[8], 3);
+    float control3 = pow(parameters[9], 3);
+    float control4 = pow(parameters[10], 3);
+
+    subBass.setCutoff(60.0);
+    bassUpper.setCutoff(250.0);
+    bassLower.setCutoff(60.0);
+    midUpper.setCutoff(2000.0);
+    midLower.setCutoff(250.0);
+    treble.setCutoff(2000.0);
+
+    float presenceCenterFrequency = pow(parameters[12], 3.0) * (20000.0 - 1000.0) + 1000.0; // Example range: 1000 Hz to 20000 Hz
+    float presenceGain = 1.41; // Approximately +3 dB
+    float mixDrop = 1 - 0.41;
+    resonanceFilter.setQ(presenceCenterFrequency, presenceGain);
+    resonanceFilter.setGain(presenceGain);
+
+
+    float fGate = pow(1 - parameters[13], 3);
+    float fGainReduc = 1 - (parameters[16] * parameters[16] * parameters[16]);
+    float gateFilterCutoff = 200.0 * fGate;
+    fFilter.setCutoff(gateFilterCutoff); // configure with the cutoff frequency
+
+    float fWetDryControl = pow(parameters[11], 3);
+
+    float fLoFiblend = pow(parameters[15], 3);
+
+    vinylCounter = 0;
 }
 
 void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill)
@@ -258,6 +231,61 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     // Right now we are not producing any data, in which case we need to clear the buffer
     // (to prevent the output of random noise)
     bufferToFill.clearActiveBufferRegion();
+
+    /*const float* pfBuffer0 = inputBuffers[0], * pfBuffer1 = inputBuffers[1];
+    float* pfOutBuffer0 = outputBuffers[0], * pfOutBuffer1 = outputBuffers[1];*/
+    auto* pfBuffer = bufferToFill.buffer;
+    std::vector<float> fIn(pfBuffer->getNumChannels());
+    std::vector<float> fOut(pfBuffer->getNumChannels());
+
+
+        // Get sample from input
+        for (int ch = 0; ch < pfBuffer->getNumChannels(); ++ch)
+        {
+            float* channelData = buffer.getWritePointer(ch);
+
+            for (int s = 0; s < buffer.getNumSamples(); ++s)
+            {
+                fIn[ch] = *pfBuffer++;
+
+                // Add your effect processing here
+
+                float fMix = (fIn0 + fIn1) / 2;
+                // monoMix = fFilter.tick(monoMix);
+                fDryStereo[s] = fIn0 * fInGain * NoiseGate(fFilter.tick(fMix), fGate, fGainReduc);
+
+                fWetStereo[s] = resonanceFilter.tick(fDryStereo[0]) * mixDrop;
+                fWetStereo[1] = resonanceFilter.tick(fDryStereo[1]) * mixDrop;
+
+                for (int i = 0; i <= 1; i++) {
+                    // Initialise bands for each channel
+                    fBand[0] = subBass.tick(fWetStereo[i] * control1);
+                    fBand[1] = (bassUpper.tick(fWetStereo[i] * control2) + bassLower.tick(fDryStereo[i] * control2));
+                    fBand[2] = (midUpper.tick(fWetStereo[i] * control3) + midLower.tick(fDryStereo[i] * control3));
+                    fBand[3] = treble.tick(fWetStereo[i] * control4);
+
+
+                    // Process each band if required
+                    for (int j = 0; j <= 3; j++)
+                    {
+                        fTonalDistortion[j] = ProcessDistortion(fBand[j], parameters[3 + j], parameters[2]);
+                    }
+
+                    // Sum the processed bands
+                    fWetStereo[i] = fTonalDistortion[0] + fTonalDistortion[1] + fTonalDistortion[2] + fTonalDistortion[3];
+
+                    fWetStereo[i] = LoFiEffects(fWetStereo[i], parameters[14], fLoFiblend, numSamples, getSampleRate(), vinylCounter);
+                }
+
+                // Output calculation
+                fOut0 = (fWetStereo[0] * fWetDryControl) + (fDryStereo[0] * (1.0 - fWetDryControl));
+                fOut1 = (fWetStereo[1] * fWetDryControl) + (fDryStereo[1] * (1.0 - fWetDryControl));
+
+                // Copy result to output
+                *pfOutBuffer0++ = fOut0 * fOutGain;
+                *pfOutBuffer1++ = fOut1 * fOutGain;
+        }
+    }
 }
 
 void MainComponent::releaseResources()
