@@ -3,6 +3,8 @@
 #include <JuceHeader.h>
 #include "Data/EffectExtra.h"
 
+const int iNUMBER_OF_PARAMETERS = 12;
+
 //==============================================================================
 /*
     This component lives inside our window, and this is where you should put all
@@ -27,11 +29,12 @@ public:
     //==============================================================================
     double NoiseGate(double dMonoMix, double dControl, double dReduction);
 
-    juce::ValueTree parameters;
-
 private:
     //==============================================================================
-    juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+    juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
+    juce::AudioProcessorValueTreeState APVTS;
+    juce::Slider parameters[iNUMBER_OF_PARAMETERS];
+    std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>, iNUMBER_OF_PARAMETERS> paramAttach;
 
     //==============================================================================
     // Your private member variables go here...

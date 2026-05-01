@@ -2,51 +2,30 @@
 
 //==============================================================================
 MainComponent::MainComponent()
+    : APVTS(*this, nullptr, "PARAMS", createParameters())
 {
     // Make sure you set the size of the component after
     // you add any child components.
 
-    parameters = juce::ValueTree("Parameters");
+    /*std::string parameterNames[iNUMBER_OF_PARAMETERS] = {
+"InGain", "OutGain", "Distortion", "SubBass", "Bass", "Mid",
+"Treble", "Wet", "Presence", "NoiseGate", "Lo-Fi Blend", "Gate Reduction"
+    };*/
 
-    // --- Rotaries / Floats ---
-    parameters.setProperty("InGain", 0.0f, nullptr);
-    parameters.setProperty("OutGain", 0.0f, nullptr);
-    parameters.setProperty("Distortion", 0.0f, nullptr);
-    parameters.setProperty("SubBass", 0.0f, nullptr);
-    parameters.setProperty("Bass", 0.0f, nullptr);
-    parameters.setProperty("Mid", 0.0f, nullptr);
-    parameters.setProperty("Treble", 0.0f, nullptr);
-    parameters.setProperty("Wet", 0.0f, nullptr);
-    parameters.setProperty("Presence", 0.0f, nullptr);
-    parameters.setProperty("NoiseGate", 0.0f, nullptr);
-    parameters.setProperty("LofiBlend", 0.0f, nullptr);
-    parameters.setProperty("GateReduction", 0.0f, nullptr);
+    juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
-    // --- Menus / Choices (stored as Integers) ---
-    parameters.setProperty("SubBassDistortion", 0, nullptr);
-    parameters.setProperty("BassDistortion", 0, nullptr);
-    parameters.setProperty("MidDistortion", 0, nullptr);
-    parameters.setProperty("TrebleDistortion", 0, nullptr);
-    parameters.setProperty("LofiEffects", 0, nullptr);
+	for (int i = 0; i < iNUMBER_OF_PARAMETERS; i++)
+    {
+        addAndMakeVisible(parameters[i]);
+        paramAttach[i] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(APVTS, parameterNames[i], parameters[i]);
+    }
 
-    // The keys in the exact order of your original float array
-    static const std::vector<juce::Identifier> ids = {
-        "InGain", "OutGain", "Distortion",
-        "SubBassDistortion", "BassDistortion", "MidDistortion", "TrebleDistortion",
-        "SubBass", "Bass", "Mid", "Treble", "Wet", "Presence", "NoiseGate",
-        "LofiEffects", "LofiBlend", "GateReduction"
-    };
+    layout.add(std::make_unique<juce::AudioParameterFloat>("input gain", "Input Gain", 0.0f, 1.0f, 0.5f));
+	layout.add(std::make_unique<juce::AudioParameterFloat>("output gain", "Output Gain", 0.0f, 1.0f, 0.5f));
+	layout.add(std::make_unique<juce::AudioParameterFloat>("distortion", "Distortion", 0.0f, 1.0f, 0.0f));
+    layout.add(std::make_unique<juce::AudioParameterFloat>("sub bass", "Sub Bass", 0.0f, 1.0f, 0.0f));
+    layout.add(std::make_unique<juce::AudioParameterFloat>("bass", "Bass", 0.0f, 1.0));
 
-    const float presetData[][17] = {
-        { 1.0f, 1.0f, 1.0f, 0, 0, 2, 1, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.75f, 1.0f, 0, 0, 1 }, // Monty Guitar
-        { 1.000, 0.620, 1.000, 0, 4, 2, 1, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 0.413, 4, 0.245, 0.861 }, // Dirty Drum Gate
-        { 0.753, 1.000, 0.603, 0, 6, 1, 6, 1.000, 1.000, 1.000, 0.701, 0.607, 1.000, 1.000, 0, 0.000, 1.000 }, // EP Saturation
-        { 1.000, 1.000, 1.000, 0, 0, 0, 0, 1.000, 1.000, 1.000, 1.000, 0.823, 1.000, 1.000, 4, 0.816, 0.000 }, // Bits Crushed
-        { 1.000, 1.000, 1.000, 0, 0, 0, 0, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 2, 0.907, 0.000 }  // Oops, I broke it!
-    };
-
-    for (int i = 0; i < ids.size(); ++i)
-        parameters.setProperty(ids[i], presetData[presetIndex][i], nullptr);
 
 
     setSize(800, 600);
