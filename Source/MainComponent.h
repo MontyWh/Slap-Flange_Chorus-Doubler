@@ -25,33 +25,42 @@ public:
     void resized() override;
 
     //==============================================================================
-    float NoiseGate(float monoMix, float control, float fReduction);
+    double NoiseGate(double dMonoMix, double dControl, double dReduction);
+
+    juce::ValueTree parameters;
 
 private:
     //==============================================================================
+    juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+
+    //==============================================================================
     // Your private member variables go here...
 
-    juce::dsp::IIR::Filter<float> subBass; // LPF
-    juce::dsp::IIR::Filter<float> bassLower; // BPF
-    juce::dsp::IIR::Filter<float> bassUpper; // BPF
-    juce::dsp::IIR::Filter<float> midLower; // BPF
-    juce::dsp::IIR::Filter<float> midUpper; // BPF
-    juce::dsp::IIR::Filter<float> treble; // HPF
+    juce::dsp::IIR::Filter<double> subBass; // LPF
+    juce::dsp::IIR::Filter<double> bassLower; // BPF
+    juce::dsp::IIR::Filter<double> bassUpper; // BPF
+    juce::dsp::IIR::Filter<double> midLower; // BPF
+    juce::dsp::IIR::Filter<double> midUpper; // BPF
+    juce::dsp::IIR::Filter<double> treble; // HPF
 
-    juce::dsp::IIR::Filter<float> resonanceFilter; // BPF
+    juce::dsp::IIR::Filter<double> resonanceFilter; // BPF
 
-    float fSampleRate;
+    double dSampleRate;
 	
-	int iMeasuredLength = fSampleRate; // to later get the sample rate instead
+	int iMeasuredLength = dSampleRate; // to later get the sample rate instead
     int iMeasuredItems = 0;
-    float fPeak = 0.0f; // initially there is no peak value
-    float fGateGain = 0; // initially the gate is closed
-    float fGateTarget = 0.0f; // the gate is opening/closing
-    juce::dsp::IIR::Filter<float> fFilter;
+    double dPeak = 0.0; // initially there is no peak value
+    double dGateGain = 0; // initially the gate is closed
+    double dGateTarget = 0.0; // the gate is opening/closing
+    juce::dsp::IIR::Filter<double> dFilter;
 
-    float vinylCounter;
+    double dVinylCounter;
 
-    float meterCounter = 0;
+    double dMeterCounter = 0;
+
+    double dPi = juce::MathConstants<double>::pi;
+
+    
 
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)

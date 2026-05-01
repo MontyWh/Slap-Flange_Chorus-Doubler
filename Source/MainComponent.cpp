@@ -1,29 +1,67 @@
 #include "MainComponent.h"
 
-#include <cmath>
-#include <iostream>
-
-// formula for pi
-float pi = atan(1) * 4;
-
 //==============================================================================
 MainComponent::MainComponent()
 {
     // Make sure you set the size of the component after
     // you add any child components.
-    setSize (800, 600);
+
+    parameters = juce::ValueTree("Parameters");
+
+    // --- Rotaries / Floats ---
+    parameters.setProperty("InGain", 0.0f, nullptr);
+    parameters.setProperty("OutGain", 0.0f, nullptr);
+    parameters.setProperty("Distortion", 0.0f, nullptr);
+    parameters.setProperty("SubBass", 0.0f, nullptr);
+    parameters.setProperty("Bass", 0.0f, nullptr);
+    parameters.setProperty("Mid", 0.0f, nullptr);
+    parameters.setProperty("Treble", 0.0f, nullptr);
+    parameters.setProperty("Wet", 0.0f, nullptr);
+    parameters.setProperty("Presence", 0.0f, nullptr);
+    parameters.setProperty("NoiseGate", 0.0f, nullptr);
+    parameters.setProperty("LofiBlend", 0.0f, nullptr);
+    parameters.setProperty("GateReduction", 0.0f, nullptr);
+
+    // --- Menus / Choices (stored as Integers) ---
+    parameters.setProperty("SubBassDistortion", 0, nullptr);
+    parameters.setProperty("BassDistortion", 0, nullptr);
+    parameters.setProperty("MidDistortion", 0, nullptr);
+    parameters.setProperty("TrebleDistortion", 0, nullptr);
+    parameters.setProperty("LofiEffects", 0, nullptr);
+
+    // The keys in the exact order of your original float array
+    static const std::vector<juce::Identifier> ids = {
+        "InGain", "OutGain", "Distortion",
+        "SubBassDistortion", "BassDistortion", "MidDistortion", "TrebleDistortion",
+        "SubBass", "Bass", "Mid", "Treble", "Wet", "Presence", "NoiseGate",
+        "LofiEffects", "LofiBlend", "GateReduction"
+    };
+
+    const float presetData[][17] = {
+        { 1.0f, 1.0f, 1.0f, 0, 0, 2, 1, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.75f, 1.0f, 0, 0, 1 }, // Monty Guitar
+        { 1.000, 0.620, 1.000, 0, 4, 2, 1, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 0.413, 4, 0.245, 0.861 }, // Dirty Drum Gate
+        { 0.753, 1.000, 0.603, 0, 6, 1, 6, 1.000, 1.000, 1.000, 0.701, 0.607, 1.000, 1.000, 0, 0.000, 1.000 }, // EP Saturation
+        { 1.000, 1.000, 1.000, 0, 0, 0, 0, 1.000, 1.000, 1.000, 1.000, 0.823, 1.000, 1.000, 4, 0.816, 0.000 }, // Bits Crushed
+        { 1.000, 1.000, 1.000, 0, 0, 0, 0, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 2, 0.907, 0.000 }  // Oops, I broke it!
+    };
+
+    for (int i = 0; i < ids.size(); ++i)
+        parameters.setProperty(ids[i], presetData[presetIndex][i], nullptr);
+
+
+    setSize(800, 600);
 
     // Some platforms require permissions to open input channels so request that here
-    if (juce::RuntimePermissions::isRequired (juce::RuntimePermissions::recordAudio)
-        && ! juce::RuntimePermissions::isGranted (juce::RuntimePermissions::recordAudio))
+    if (juce::RuntimePermissions::isRequired(juce::RuntimePermissions::recordAudio)
+        && !juce::RuntimePermissions::isGranted(juce::RuntimePermissions::recordAudio))
     {
-        juce::RuntimePermissions::request (juce::RuntimePermissions::recordAudio,
-                                           [&] (bool granted) { setAudioChannels (granted ? 2 : 0, 2); });
+        juce::RuntimePermissions::request(juce::RuntimePermissions::recordAudio,
+            [&](bool granted) { setAudioChannels(granted ? 2 : 0, 2); });
     }
     else
     {
         // Specify the number of input and output channels that we want to open
-        setAudioChannels (2, 2);
+        setAudioChannels(2, 2);
     }
 }
 
@@ -34,134 +72,135 @@ MainComponent::~MainComponent()
 }
 
 //==============================================================================
-float ProcessDistortion(float input, int type, float control)
+double ProcessDistortion(double input, int type, double dControl)
 {
-    float inputGain = 1.0 + (pow(control, 3.0) * (25.0 - 1.0));
+    double dInputGain = 1.0 + (pow(dControl, 3.0) * (25.0 - 1.0));
 
     // Distortion types
 
     if (type == 1)
     {
-        input = SoftClip(input, inputGain);
+        input = SoftClip(input, dInputGain);
     }
 
     else if (type == 2)
     {
-        input = HardClip(input, inputGain);
+        input = HardClip(input, dInputGain);
     }
 
     else if (type == 3)
     {
-        input = QuantisedDistortion(input, inputGain);
+        input = QuantisedDistortion(input, dInputGain);
     }
 
     else if (type == 4)
     {
-        input = RectifiedDistortion(input, inputGain);
+        input = RectifiedDistortion(input, dInputGain);
     }
 
     else if (type == 5)
     {
-        input = FoldingDistortion(input, inputGain);
+        input = FoldingDistortion(input, dInputGain);
     }
 
     else if (type == 6)
     {
-        input = AsymmetricDistortion(input, inputGain);
+        input = AsymmetricDistortion(input, dInputGain);
     }
 
     else if (type == 7)
     {
-        input = ParabolicDistortion(input, inputGain);
+        input = ParabolicDistortion(input, dInputGain);
     }
 
     else if (type == 8)
     {
-        input = QuarterCircleDistortion(input, inputGain);
+        input = QuarterCircleDistortion(input, dInputGain);
     }
 
     return input;
 }
 
 //==============================================================================
-float LoFiEffects(float input, int type, float control, float numOfSamples, float fSR, int counter)
+double LoFiEffects(double input, int type, double dControl, double dNumOfSamples, double fSR, int counter)
 {
-    float output = 0;
+    double dOutput = 0;
     if (type == 1)
     {
-        output = TangentDistortion(input, control);
+        dOutput = TangentDistortion(input, dControl);
     }
     if (type == 2)
     {
-        output = AliasingDistortion(input, control, numOfSamples, fSR);
+        dOutput = AliasingDistortion(input, dControl, dNumOfSamples, fSR);
     }
     if (type == 3)
     {
-        output = PhaseDistortion(input, control, numOfSamples, fSR);
+        dOutput = PhaseDistortion(input, dControl, dNumOfSamples, fSR);
     }
     if (type == 4)
     {
-        output = AlterBitDepth(input, control);
+        dOutput = AlterBitDepth(input, dControl);
     }
     if (type == 5)
     {
-        output = VinylCrackle(input, numOfSamples, control, counter, fSR);
+        dOutput = VinylCrackle(input, dNumOfSamples, dControl, counter, fSR);
     }
 
-    output = (output * control) + ((1.0f - control) * input);
+    dOutput = (dOutput * dControl) + ((1.0 - dControl) * input);
 
-    return output;
+    return dOutput;
 }
 
 //==============================================================================
-float MainComponent::NoiseGate(float monoMix, float control, float fReduction)
+double MainComponent::NoiseGate(double dMonoMix, double dControl, double dReduction)
 {
-    float fThresh = control;
-    bool meterCounterCondition = false;
+    double dThresh = dControl;
+    bool dMeterCounterCondition = false;
 
 
     // Define the input range (1 to 40)
-    float x = 1.0;
-    float y = 40.0;
+    double x = 1.0;
+    double y = 40.0;
 
-    if (meterCounterCondition == true)
+    if (dMeterCounterCondition == true)
     {
-        // test and cycle through fThresh
-        meterCounter += 0.0000025; // count up
-        control = meterCounter; // display the value
-        if (meterCounter > 1) meterCounter = 0; // reset the value
+        // test and cycle through dThresh
+        dMeterCounter += 0.0000025; // count up
+        dControl = dMeterCounter; // display the value
+        if (dMeterCounter > 1) dMeterCounter = 0; // reset the value
     }
 
-    float fAbsolute = fabsf(monoMix);
+    double dAbsolute = fabs(dMonoMix);
 
-    if (fPeak < fAbsolute) fPeak = fAbsolute; // did we see a louder peak?
+    if (dPeak < dAbsolute) dPeak = dAbsolute; // did we see a louder peak?
     iMeasuredItems++;
 
 
     if (iMeasuredItems == iMeasuredLength)
     {
-        //// Scale and offset the values of fMax0
-        fPeak = x + (fPeak * (y - x));
+        //// Scale and offset the values of dMax0
+        dPeak = x + (dPeak * (y - x));
 
         // Use the log10() function to calculate log values, to give you values between log10(1) to log10(40), to then scale to the range of 0 to 1 by dividing by log10(4)
-        fPeak = log10(fPeak) / log10(40);
+        dPeak = log10(dPeak) / log10(40);
 
-        iMeasuredItems = fPeak = 0; // reset for next time
+        iMeasuredItems = 0;
+        dPeak = 0.0; // reset for next time
     }
 
-    fGateTarget = (fPeak > fThresh) ? 1 : fReduction; // should the gate open?
-    if (fGateGain < fGateTarget) // the gate is opening - 'Attack'
+    dGateTarget = (dPeak > dThresh) ? 1 : dReduction; // should the gate open?
+    if (dGateGain < dGateTarget) // the gate is opening - 'Attack'
     {
-        fGateGain += 0.01;
-        if (fGateGain > 1) fGateGain = 1;
+        dGateGain += 0.01;
+        if (dGateGain > 1) dGateGain = 1;
     }
-    if (fGateGain > fGateTarget) // the gate is closing - 'Release'
+    if (dGateGain > dGateTarget) // the gate is closing - 'Release'
     {
-        fGateGain -= 0.01;
-        if (fGateGain < fReduction) fGateGain = fReduction;
+        dGateGain -= 0.01;
+        if (dGateGain < dReduction) dGateGain = dReduction;
     }
 
-    return fGateGain;
+    return dGateGain;
 }
 
 //==============================================================================
@@ -181,45 +220,62 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
     spec.numChannels = deviceManager.getCurrentAudioDevice()->getActiveOutputChannels().countNumberOfSetBits(); // Get the number of active output channels from the audio device manager
 
 
-    fSampleRate = spec.sampleRate;
+    dSampleRate = spec.sampleRate;
 
-    float fOutGain = pow(parameters[1], 3.0);
-    float fInGain = pow(parameters[0], 3.0);
+    double dOutGain = pow(parameters[1], 3.0);
+    double dInGain = pow(parameters[0], 3.0);
 
-    float fWetStereo[2];
-    float fDryStereo[2];
-    float fBand[4];
-    float fTonalDistortion[4];
+    double dWetStereo[2];
+    double dDryStereo[2];
+    double dBand[4];
+    double dTonalDistortion[4];
 
-    float control1 = pow(parameters[7], 3);
-    float control2 = pow(parameters[8], 3);
-    float control3 = pow(parameters[9], 3);
-    float control4 = pow(parameters[10], 3);
+    double dControl1 = pow(parameters[7], 3);
+    double dControl2 = pow(parameters[8], 3);
+    double dControl3 = pow(parameters[9], 3);
+    double dControl4 = pow(parameters[10], 3);
 
-    subBass.setCutoff(60.0);
-    bassUpper.setCutoff(250.0);
-    bassLower.setCutoff(60.0);
-    midUpper.setCutoff(2000.0);
-    midLower.setCutoff(250.0);
-    treble.setCutoff(2000.0);
+    subBass.prepare(spec);
+	auto subBassCoeff = juce::dsp::IIR::Coefficients<double>::makeLowPass(sampleRate, 60.0);
+	subBass.coefficients = subBassCoeff;
 
-    float presenceCenterFrequency = pow(parameters[12], 3.0) * (20000.0 - 1000.0) + 1000.0; // Example range: 1000 Hz to 20000 Hz
-    float presenceGain = 1.41; // Approximately +3 dB
-    float mixDrop = 1 - 0.41;
-    resonanceFilter.setQ(presenceCenterFrequency, presenceGain);
-    resonanceFilter.setGain(presenceGain);
+    bassUpper.prepare(spec);
+    auto bassUpperCoeff = juce::dsp::IIR::Coefficients<double>::makeBandPass(sampleRate, 250.0);
+    bassUpper.coefficients = bassUpperCoeff;
 
+    bassLower.prepare(spec);
+    auto bassLowerCoeff = juce::dsp::IIR::Coefficients<double>::makeBandPass(sampleRate, 60.0);
+    bassLower.coefficients = bassLowerCoeff;
 
-    float fGate = pow(1 - parameters[13], 3);
-    float fGainReduc = 1 - (parameters[16] * parameters[16] * parameters[16]);
-    float gateFilterCutoff = 200.0 * fGate;
-    fFilter.setCutoff(gateFilterCutoff); // configure with the cutoff frequency
+    midUpper.prepare(spec);
+    auto midUpperCoeff = juce::dsp::IIR::Coefficients<double>::makeBandPass(sampleRate, 2000.0);
+    midUpper.coefficients = midUpperCoeff;
 
-    float fWetDryControl = pow(parameters[11], 3);
+    midLower.prepare(spec);
+    auto midLowerCoeff = juce::dsp::IIR::Coefficients<double>::makeBandPass(sampleRate, 250.0);
+    midLower.coefficients = midLowerCoeff;
 
-    float fLoFiblend = pow(parameters[15], 3);
+    treble.prepare(spec);
+	auto trebleCoeff = juce::dsp::IIR::Coefficients<double>::makeHighPass(sampleRate, 2000.0);
+	treble.coefficients = trebleCoeff;
 
-    vinylCounter = 0;
+    double dPresenceCenterFrequency = pow(parameters[12], 3.0) * (20000.0 - 1000.0) + 1000.0; // Example range: 1000 Hz to 20000 Hz
+    double dPresenceGain = 1.41; // Approximately +3 dB
+    double dMixDrop = 1 - 0.41;
+    resonanceFilter.prepare(spec);
+	auto resonanceCoeff = juce::dsp::IIR::Coefficients<double>::makePeakFilter(sampleRate, dPresenceCenterFrequency, 1.0, dPresenceGain);
+    resonanceFilter.coefficients = resonanceCoeff;
+
+    double dGate = pow(1 - parameters[13], 3);
+    double dGainReduc = 1 - (parameters[16] * parameters[16] * parameters[16]);
+    double dGateFilterCutoff = 200.0 * dGate;
+    dFilter.setCutoff(dGateFilterCutoff); // configure with the cutoff frequency
+
+    double dWetDryControl = pow(parameters[11], 3);
+
+    double dLoFiblend = pow(parameters[15], 3);
+
+    dVinylCounter = 0;
 }
 
 void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill)
@@ -232,54 +288,52 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     // (to prevent the output of random noise)
     bufferToFill.clearActiveBufferRegion();
 
-    /*const float* pfBuffer0 = inputBuffers[0], * pfBuffer1 = inputBuffers[1];
-    float* pfOutBuffer0 = outputBuffers[0], * pfOutBuffer1 = outputBuffers[1];*/
-    auto* pfBuffer = bufferToFill.buffer;
-    std::vector<float*&> fIn(pfBuffer->getNumChannels());
-    std::vector<float*> fOut(pfBuffer->getNumChannels());
+    auto* pdBuffer = bufferToFill.buffer;
+    std::vector<double*&> dIn(pdBuffer->getNumChannels());
+    std::vector<double*> dOut(pdBuffer->getNumChannels());
 
-    std::vector<float> fDry(pfBuffer->getNumChannels());
-    std::vector<float> fWet(pfBuffer->getNumChannels());
+    std::vector<double> dDry(pdBuffer->getNumChannels());
+    std::vector<double> dWet(pdBuffer->getNumChannels());
 
-    float fBand[4];
-    float fToneDistort[4];
+    double dBand[4];
+    double dToneDistort[4];
 
         // Get sample from input
-        for (int channel = 0; channel < pfBuffer->getNumChannels(); ++channel)
+        for (int channel = 0; channel < pdBuffer->getNumChannels(); ++channel)
         {
-            fDry[channel] = fIn[channel] = pfBuffer->getWritePointer(channel);
+            dDry[channel] = dIn[channel] = pdBuffer->getWritePointer(channel);
 
-            for (int s = 0; s < pfBuffer->getNumSamples(); ++s)
+            for (int s = 0; s < pdBuffer->getNumSamples(); ++s)
             {
                 // Add your effect processing here
                 // monoMix = fFilter.tick(monoMix);
-                fDry[s] = fIn * fInGain * NoiseGate(fFilter.tick(fMix), fGate, fGainReduc);
+                dDry[s] = dIn * dInGain * NoiseGate(dFilter.tick(dMix), dGate, dGainReduc);
 
-                fDry[s] = resonanceFilter.tick(fDry) * mixDrop;
+                dDry[s] = resonanceFilter.tick(dDry) * dMixDrop;
 
                 for (int i = 0; i <= 1; i++) {
                     // Initialise bands for each channel
-                	fBand[0] = subBass.tick(fWet[i] * control1);
-                    fBand[1] = (bassUpper.tick(fWet[i] * control2) + bassLower.tick(fDry[i] * control2));
-                    fBand[2] = (midUpper.tick(fWet[i] * control3) + midLower.tick(fDry[i] * control3));
-                    fBand[3] = treble.tick(fWet[i] * control4);
+                	dBand[0] = subBass.tick(dWet[i] * dControl1);
+                    dBand[1] = (bassUpper.tick(dWet[i] * dControl2) + bassLower.tick(dDry[i] * dControl2));
+                    dBand[2] = (midUpper.tick(dWet[i] * dControl3) + midLower.tick(dDry[i] * dControl3));
+                    dBand[3] = treble.tick(dWet[i] * dControl4);
 
 
                     // Process each band if required
                     for (int j = 0; j <= 3; j++)
                     {
-                        fToneDistort[j] = ProcessDistortion(fBand[j], parameters[3 + j], parameters[2]);
+                        dToneDistort[j] = ProcessDistortion(dBand[j], parameters[3 + j], parameters[2]);
                     }
 
                     // Sum the processed bands
-                    fWet[s] = fToneDistort[0] + fToneDistort[1] + fToneDistort[2] + fToneDistort[3];
-                    fWet[s] = LoFiEffects(fWet[i], parameters[14], fLoFiblend, pfBuffer->getNumSamples(), fSampleRate, vinylCounter);
+                    dWet[s] = dToneDistort[0] + dToneDistort[1] + dToneDistort[2] + dToneDistort[3];
+                    dWet[s] = LoFiEffects(dWet[i], parameters[14], dLoFiblend, pdBuffer->getNumSamples(), dSampleRate, dVinylCounter);
                 }
 
                 // Output calculation
-                fOut[s] = (fWet[s] * fWetDryControl) + (fDry[s] * (1.0 - fWetDryControl));
+                dOut[s] = (dWet[s] * dWetDryControl) + (dDry[s] * (1.0 - dWetDryControl));
                 // Copy result to output
-                fOut[s] *= fOutGain;
+                dOut[s] *= dOutGain;
         }
     }
 }
