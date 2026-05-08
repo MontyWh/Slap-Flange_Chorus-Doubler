@@ -18,110 +18,111 @@ float rectify(float value) {
     return (value < 0) ? -value : value;
 }
 
-float SoftClip(float dInput, float control)
+float SoftClip(float fInput, float control)
 {
-    float dOutput = (2 / M_PI) * atan(dInput * control);
-    return dOutput;
+    float fOutput = (2 / M_PI) * atan(fInput * control);
+    return fOutput;
 }
 
-float HardClip(float dInput, float control)
+float HardClip(float fInput, float control)
 {
-    dInput *= control;
-    if (dInput > 1) dInput = 1;
-    else if (dInput < -1) dInput = -1;
+    fInput *= control;
+    if (fInput > 1) fInput = 1;
+    else if (fInput < -1) fInput = -1;
 
-    return dInput;
+    return fInput;
 }
 
-float QuantisedDistortion(float dInput, float control)
+float QuantisedDistortion(float fInput, float control)
 {
     // Adjust gain for distortion based on control parameter
     float adjustedGain = std::pow(10, (control * 2.5) / 20);
 
-    // Apply distortion by scaling the dInput
-    int quantised = static_cast<int>(std::round(dInput * adjustedGain));
+    // Apply distortion by scaling the fInput
+    int quantised = static_cast<int>(std::round(fInput * adjustedGain));
 
     // Convert quantized integer back to floating-point
-    float dOutput = static_cast<float>(quantised);
+    float fOutput = static_cast<float>(quantised);
 
     // Return the distorted signal
-    return dOutput;
+    return fOutput;
 }
 
-float RectifiedDistortion(float dInput, float control)
+float RectifiedDistortion(float fInput, float control)
 {
 
-    float dOutput = rectify(dInput * control);
+    float fOutput = rectify(fInput * control);
 
-    return dOutput;
+    return fOutput;
 }
 
-float FoldingDistortion(float dInput, float control)
+float FoldingDistortion(float fInput, float control)
 {
-    dInput = HardClip(dInput, control);
-    if (dInput < -1) dInput = -1 + (1 + dInput);
-    else if (dInput > 1) dInput = 1 - (1 - dInput);
+    fInput = HardClip(fInput, control);
+    if (fInput < -1) fInput = -1 + (1 + fInput);
+    else if (fInput > 1) fInput = 1 - (1 - fInput);
 
-    return dInput;
+    return fInput;
 }
 
-float AsymmetricDistortion(float dInput, float control)
+float AsymmetricDistortion(float fInput, float control)
 {
-    if (dInput < 0) dInput = SoftClip(dInput, control);
-    else if (dInput > 0) dInput = HardClip(dInput, control);
+    if (fInput < 0) fInput = SoftClip(fInput, control);
+    else if (fInput > 0) fInput = HardClip(fInput, control);
 
-    return dInput;
+    return fInput;
 }
 
-float ParabolicDistortion(float dInput, float control)
+float ParabolicDistortion(float fInput, float control)
 {
-    if (dInput < 0) dInput = 0 - pow(HardClip(dInput, control), 2);
-    else if (dInput > 0) dInput = pow(HardClip(dInput, control), 2);
+    if (fInput < 0) fInput = 0 - pow(HardClip(fInput, control), 2);
+    else if (fInput > 0) fInput = pow(HardClip(fInput, control), 2);
 
-    if (dInput < 0) dInput = dInput;
-    else if (dInput > 0) dInput = dInput;
-    else dInput = 0;
+    if (fInput < 0) fInput = fInput;
+    else if (fInput > 0) fInput = fInput;
+    else fInput = 0;
 
-    return dInput;
+    return fInput;
 }
 
-float QuarterCircleDistortion(float dInput, float control)
+float QuarterCircleDistortion(float fInput, float control)
 {
-    dInput *= control;
+    fInput *= control;
     float radius = 1.0;
 
-    float dOutput = sqrt(std::max(0.0, radius - pow(dInput, 2)));
+    // Edit: Added std::max to ensure we never calculate sqrt of a negative number
+    float fOutput = sqrt(std::max(0.0f, radius - pow(fInput, 2.0f)));
 
-    return dOutput;
+    return fOutput;
 }
 
 
 // Lo-Fi distortion types
 
-float TangentDistortion(float dInput, float control)
+float TangentDistortion(float fInput, float control)
 {
     // Use a non-linear function like tanh for soft clipping
-    float dOutput = std::tanh(dInput * control);
+    float fOutput = std::tanh(fInput * control);
 
 
-    return dOutput;
+    return fOutput;
 }
 
-float AliasingDistortion(float dInput, float control, float numOfSamples, float fSR)
+float AliasingDistortion(float fInput, float control, float numOfSamples, float fSR)
 {
     // "Time-quantising" aka 'aliasing'
 
-    dInput *= control;
+    fInput *= control;
 
     static int sampleCounter = 0; // Keeps track of the iSample count
-    static float lastOutput = 0.0; // Holds the last dOutput iSample for aliasing effect
+    static float lastOutput = 0.0; // Holds the last fOutput iSample for aliasing effect
 
     // Calculate the downsampling factor based on the control parameter
     int downsampleFactor = static_cast<int>(fSR / numOfSamples) + 1;
 
-    // Downsample by only updating dOutput on every Nth iSample, according to downsampleFactor
+    // Downsample by only updating fOutput on every Nth iSample, according to downsampleFactor
     if (sampleCounter % downsampleFactor == 0) {
-        lastOutput = dInput;
+        lastOutput = fInput;
     }
 
     // Increment iSample counter and wrap it around to prevent overflow
@@ -131,7 +132,7 @@ float AliasingDistortion(float dInput, float control, float numOfSamples, float 
     return lastOutput;
 }
 
-float PhaseDistortion(float dInput, float control, float numOfSamples, double dSR)
+float PhaseDistortion(float fInput, float control, float numOfSamples, double dSR)
 {
     // Static phase accumulator to maintain state across calls
     static float phaseAccumulator = 0.0f;
@@ -140,7 +141,7 @@ float PhaseDistortion(float dInput, float control, float numOfSamples, double dS
     float phaseIncrement = 2.0f * M_PI * phaseShift / dSR;
 
     // Apply distortion based on the current phase state
-    float dOutput = dInput * std::cos(phaseAccumulator);
+    float fOutput = fInput * std::cos(phaseAccumulator);
 
     // Increment phase for the NEXT sample
     phaseAccumulator += phaseIncrement;
@@ -148,46 +149,46 @@ float PhaseDistortion(float dInput, float control, float numOfSamples, double dS
     // Wrap phase to keep it within a reasonable range (0 to 2PI)
     if (phaseAccumulator >= 2.0f * M_PI) phaseAccumulator -= 2.0f * M_PI;
 
-    return dOutput;
+    return fOutput;
 }
 
-float AlterBitDepth(float dInput, float control)
+float AlterBitDepth(float fInput, float control)
 {
     // Number of bits to reduce by
     float maxDepth = 24 * (1 - std::pow(control, 1.0 / 4.0));
 
     // Calculate the altered iSample value
-    float alteredSample = round((dInput + 1.0) * maxDepth) / (maxDepth + 1.0);
+    float alteredSample = round((fInput + 1.0) * maxDepth) / (maxDepth + 1.0);
 
     return alteredSample;
 }
 
-float VinylCrackle(float dInput, float numOfSamples, float control, int counter, float fSR)
+float VinylCrackle(float fInput, float numOfSamples, float control, int counter, float fSR)
 {
     int randomNumber = rand() % 200 + 1;     // in the range 1 to x
 
-    float fInputDip = dInput * 0.5;
+    float fInputDip = fInput * 0.5;
 
     if (numOfSamples == randomNumber)
     {
         if (randomNumber == 0)
-            dInput = 0 + (randomNumber / 100);
+            fInput = 0 + (randomNumber / 100);
         else if (randomNumber == 1)
-            dInput = HardClip(dInput * (1.0 + control), 1.0);
+            fInput = HardClip(fInput * (1.0 + control), 1.0);
         else if (randomNumber == 2)
         {
-            dInput = AlterBitDepth(fInputDip, control);
+            fInput = AlterBitDepth(fInputDip, control);
         }
         else if (randomNumber == 3)
         {
-            dInput = AliasingDistortion(fInputDip, control, numOfSamples, fSR);
+            fInput = AliasingDistortion(fInputDip, control, numOfSamples, fSR);
         }
         else if (randomNumber == 4)
         {
-            dInput = PhaseDistortion(fInputDip, control, numOfSamples, fSR);
+            fInput = PhaseDistortion(fInputDip, control, numOfSamples, fSR);
         }
     }
-    dInput = AlterBitDepth(dInput, 0.0625 * control);
+    fInput = AlterBitDepth(fInput, 0.0625 * control);
 
-    return dInput;
+    return fInput;
 }

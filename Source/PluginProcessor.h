@@ -66,7 +66,7 @@ public:
     const std::vector<Preset>& getPresets() const { return presets; }
 
     //==============================================================================
-    float NoiseGate(float monoMix, float control, float fReduction);
+    float NoiseGate(float input, float control, float reduction);
 
 private:
     //==============================================================================
@@ -77,7 +77,7 @@ private:
 
     //==============================================================================
     // Declare shared member variables here
-    double dSampleRate;
+    float fSampleRate;
 
 	// Use the base Filter class for per-iSample processing in a loop
 // In PluginProcessor.h

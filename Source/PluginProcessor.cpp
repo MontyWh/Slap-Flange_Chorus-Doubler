@@ -18,9 +18,9 @@ DistortionPlusAudioProcessor::DistortionPlusAudioProcessor()
      : AudioProcessor (BusesProperties()
                      #if ! JucePlugin_IsMidiEffect
                       #if ! JucePlugin_IsSynth
-                       .withInput  ("dInput",  juce::AudioChannelSet::stereo(), true)
+                       .withInput  ("fInput",  juce::AudioChannelSet::stereo(), true)
                       #endif
-                       .withOutput ("dOutput", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("fOutput", juce::AudioChannelSet::stereo(), true)
                      #endif
                        ), apvts(*this /*processor*/, nullptr, "Parameters", createParameters())
 #endif
@@ -37,7 +37,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout DistortionPlusAudioProcessor
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    // Setup Menus
     juce::StringArray distortOptions = { "Clean", "Soft Clip", "Hard Clip", "Quantised", "Rectified", "Folded", "Asymmetric", "Parabolic (expander)", "Quarter-Circle" };
     juce::StringArray loFiOptions = { "None", "Tangent-distortion", "Aliasing", "Phase distortion", "Alter bit depth", "Vinyl crackle" };
 
@@ -47,17 +46,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout DistortionPlusAudioProcessor
     params.push_back(std::make_unique<juce::AudioParameterChoice>("TREBLE_DISTORT", "Treble Distortion", distortOptions, 0));
     params.push_back(std::make_unique<juce::AudioParameterChoice>("LO-FI_TYPE", "Lo-Fi effects", loFiOptions, 0));
 
-    // Setup Rotary Controls
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("INPUT_GAIN", "dInput Gain", 0.0f, 1.0f, 0.0f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("OUTPUT_GAIN", "dOutput Gain", 0.0f, 1.0f, 0.0f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("DISTORTION", "Distortion", 0.0f, 1.0f, 0.0f));
+    // Edits: Changed initial values from 0.0f to 1.0f or 0.5f to ensure the plugin is audible on load
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("INPUT_GAIN", "fInput Gain", 0.0f, 1.0f, 0.5f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("OUTPUT_GAIN", "fOutput Gain", 0.0f, 1.0f, 0.5f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("DISTORTION", "Distortion", 0.0f, 1.0f, 0.1f));
 
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("SUB-BASS", "Sub-Bass", 0.0f, 1.0f, 0.0f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("BASS", "Bass", 0.0f, 1.0f, 0.0f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("MID", "Mid", 0.0f, 1.0f, 0.0f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("TREBLE", "Treble", 0.0f, 1.0f, 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("SUB-BASS", "Sub-Bass", 0.0f, 1.0f, 1.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("BASS", "Bass", 0.0f, 1.0f, 1.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("MID", "Mid", 0.0f, 1.0f, 1.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("TREBLE", "Treble", 0.0f, 1.0f, 1.0f));
 
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("WET", "Wet", 0.0f, 1.0f, 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("WET", "Wet", 0.0f, 1.0f, 1.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("PRESENCE", "Presence", 0.0f, 1.0f, 0.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("NOISE_GATE", "Noise Gate", 0.0f, 1.0f, 0.0f));
 
@@ -159,100 +158,100 @@ void DistortionPlusAudioProcessor::changeProgramName (int index, const juce::Str
 {
 }
 
-float ProcessDistortion(float dInput, int type, float control)
+float ProcessDistortion(float input, int type, float control)
 {
-    float inputGain = 1.0 + (pow(control, 3.0) * (25.0 - 1.0));
+    float fInputGain = 1.0 + (pow(control, 3.0) * (25.0 - 1.0));
 
     // Distortion types
 
     if (type == 0)
     {
-		return dInput; // Clean signal, no distortion
+		return input; // Clean signal, no distortion
 	}
 
     if (type == 1)
     {
-        dInput = SoftClip(dInput, inputGain);
+        input = SoftClip(input, fInputGain);
     }
 
     else if (type == 2)
     {
-        dInput = HardClip(dInput, inputGain);
+        input = HardClip(input, fInputGain);
     }
 
     else if (type == 3)
     {
-        dInput = QuantisedDistortion(dInput, inputGain);
+        input = QuantisedDistortion(input, fInputGain);
     }
 
     else if (type == 4)
     {
-        dInput = RectifiedDistortion(dInput, inputGain);
+        input = RectifiedDistortion(input, fInputGain);
     }
 
     else if (type == 5)
     {
-        dInput = FoldingDistortion(dInput, inputGain);
+        input = FoldingDistortion(input, fInputGain);
     }
 
     else if (type == 6)
     {
-        dInput = AsymmetricDistortion(dInput, inputGain);
+        input = AsymmetricDistortion(input, fInputGain);
     }
 
     else if (type == 7)
     {
-        dInput = ParabolicDistortion(dInput, inputGain);
+        input = ParabolicDistortion(input, fInputGain);
     }
 
     else if (type == 8)
     {
-        dInput = QuarterCircleDistortion(dInput, inputGain);
+        input = QuarterCircleDistortion(input, fInputGain);
     }
 
-    return dInput;
+    return input;
 }
 
 
-float LoFiEffects(float dInput, int type, float control, float numOfSamples, float fSR, int counter)
+float LoFiEffects(float input, int type, float control, float numOfSamples, float fSR, int counter)
 {
-	if (type == 0) return dInput; // No Lo-Fi effect, return clean signal
+	if (type == 0) return input; // No Lo-Fi effect, return clean signal
 	
-	float dOutput = 0;
+	float fOutput = 0;
     if (type == 1)
     {
-        dOutput = TangentDistortion(dInput, control);
+        fOutput = TangentDistortion(input, control);
     }
     if (type == 2)
     {
-        dOutput = AliasingDistortion(dInput, control, numOfSamples, fSR);
+        fOutput = AliasingDistortion(input, control, numOfSamples, fSR);
     }
     if (type == 3)
     {
-        dOutput = PhaseDistortion(dInput, control, numOfSamples, fSR);
+        fOutput = PhaseDistortion(input, control, numOfSamples, fSR);
     }
     if (type == 4)
     {
-        dOutput = AlterBitDepth(dInput, control);
+        fOutput = AlterBitDepth(input, control);
     }
     if (type == 5)
     {
-        dOutput = VinylCrackle(dInput, numOfSamples, control, counter, fSR);
+        fOutput = VinylCrackle(input, numOfSamples, control, counter, fSR);
     }
 
-    dOutput = (dOutput * control) + ((1.0f - control) * dInput);
+    fOutput = (fOutput * control) + ((1.0f - control) * input);
 
-    return dOutput;
+    return fOutput;
 }
 
 
-float DistortionPlusAudioProcessor::NoiseGate(float monoMix, float control, float fReduction)
+float DistortionPlusAudioProcessor::NoiseGate(float input, float control, float reduction)
 {
     float fThresh = control;
     bool meterCounterCondition = false;
 
 
-    // Define the dInput range (1 to 40)
+    // Define the fInput range (1 to 40)
     float x = 1.0;
     float y = 40.0;
 
@@ -264,7 +263,7 @@ float DistortionPlusAudioProcessor::NoiseGate(float monoMix, float control, floa
         if (meterCounter > 1) meterCounter = 0; // reset the value
     }
 
-    float fAbsolute = fabsf(monoMix);
+    float fAbsolute = fabsf(input);
 
     if (fPeak < fAbsolute) fPeak = fAbsolute; // did we see a louder peak?
     iMeasuredItems++;
@@ -281,7 +280,7 @@ float DistortionPlusAudioProcessor::NoiseGate(float monoMix, float control, floa
         iMeasuredItems = fPeak = 0; // reset for next time
     }
 
-    fGateTarget = (fPeak > fThresh) ? 1 : fReduction; // should the gate open?
+    fGateTarget = (fPeak > fThresh) ? 1 : reduction; // should the gate open?
     if (fGateGain < fGateTarget) // the gate is opening - 'Attack'
     {
         fGateGain += 0.01f;
@@ -290,7 +289,7 @@ float DistortionPlusAudioProcessor::NoiseGate(float monoMix, float control, floa
     if (fGateGain > fGateTarget) // the gate is closing - 'Release'
     {
         fGateGain -= 0.01f;
-        if (fGateGain < fReduction) fGateGain = fReduction;
+        if (fGateGain < reduction) fGateGain = reduction;
     }
 
     return fGateGain;
@@ -303,10 +302,10 @@ void DistortionPlusAudioProcessor::prepareToPlay (double sampleRate, int samples
     // initialisation that you need...
 
     int numChannels = getTotalNumInputChannels();
-    dSampleRate = sampleRate;
+    fSampleRate = static_cast<float>(sampleRate);
 
     // Initialise the measurement length (e.g., 10ms window)
-    iMeasuredLength = static_cast<int>(sampleRate * 0.01);
+    iMeasuredLength = static_cast<int>(sampleRate * 0.01f);
     iMeasuredItems = 0;
     fPeak = 0;
     fGateGain = 1.0f; // Start with gate open to avoid a "pop" on start
@@ -374,7 +373,7 @@ bool DistortionPlusAudioProcessor::isBusesLayoutSupported (const BusesLayout& la
      && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
         return false;
 
-    // This checks if the dInput layout matches the dOutput layout
+    // This checks if the fInput layout matches the fOutput layout
    #if ! JucePlugin_IsSynth
     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
         return false;
@@ -389,12 +388,11 @@ void DistortionPlusAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
 {
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels = getTotalNumInputChannels();
-    auto totalNumOutputChannels = getTotalNumOutputChannels();
 
-    // Fetch Parameter Values (Outside the loop for efficiency)
+    // Fetch values using local variables to avoid multiple pointer dereferences in the loop
     float fInGain = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
     float fOutGain = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
-    float fDistAmt = *apvts.getRawParameterValue("DISTORTION");
+    float fDistortAmt = *apvts.getRawParameterValue("DISTORTION");
 
     float fSubBassGain = std::pow(*apvts.getRawParameterValue("SUB-BASS"), 3.0f);
     float fBassGain = std::pow(*apvts.getRawParameterValue("BASS"), 3.0f);
@@ -407,92 +405,83 @@ void DistortionPlusAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
     float fLoFiBlend = std::pow(*apvts.getRawParameterValue("LO-FI_BLEND"), 3.0f);
     float fGainReduce = 1.0f - std::pow(*apvts.getRawParameterValue("GATE_REDUCTION"), 3.0f);
 
-    int iSubDistortType = (int)*apvts.getRawParameterValue("SUB_DISTORT");
-    int iBassDistType = (int)*apvts.getRawParameterValue("BASS_DISTORT");
-    int iMidDistType = (int)*apvts.getRawParameterValue("MID_DISTORT");
-    int iTrebleDistType = (int)*apvts.getRawParameterValue("TREBLE_DISTORT");
+    int iDistortTypes[4] = {
+        *apvts.getRawParameterValue("SUB_DISTORT"),
+        *apvts.getRawParameterValue("BASS_DISTORT"),
+        *apvts.getRawParameterValue("MID_DISTORT"),
+        *apvts.getRawParameterValue("TREBLE_DISTORT")
+    };
     int iLoFiType = (int)*apvts.getRawParameterValue("LO-FI_TYPE");
 
-    int iDistortTypes[4] = { iSubDistortType, iBassDistType, iMidDistType, iTrebleDistType };
+    // Update Filter Coefficients (using double for calculation accuracy)
+    float presenceFreq = fPresence * (19000.0f) + 1000.0f;
+    auto resonanceCoeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, presenceFreq, 1.41f, 1.41f);
+    auto gateCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, std::max(20.0f, 20000.0f * fGate));
 
-    // Update Filter Coefficients
-    auto subBassCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(dSampleRate, 60.0f);
-    auto bassLowerCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(dSampleRate, 60.0f);
-    auto bassUpperCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(dSampleRate, 250.0f);
-    auto midLowerCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(dSampleRate, 250.0f);
-    auto midUpperCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(dSampleRate, 2000.0f);
-    auto trebleCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(dSampleRate, 2000.0f);
-
-    float presenceFreq = fPresence * (20000.0f - 1000.0f) + 1000.0f;
-    auto resonanceCoeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(dSampleRate, presenceFreq, 1.41f, 1.41f);
-    auto gateCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(dSampleRate, 200.0f * fGate);
-
-    // Apply coefficients to every channel instance
-    for (int i = 0; i < totalNumInputChannels; ++i)
+    // Define the static cutoff frequencies for your crossover
+    auto subCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 60.0f);
+    auto bassLCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 250.0f);
+    auto bassUCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 60.0f);
+    auto midLCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 2000.0f);
+    auto midUCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 250.0f);
+    auto trebCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 2000.0f);
+	
+	for (int i = 0; i < totalNumInputChannels; ++i)
     {
-        subBass[i]->coefficients = subBassCoeffs;
-        bassLower[i]->coefficients = bassLowerCoeffs;
-        bassUpper[i]->coefficients = bassUpperCoeffs;
-        midLower[i]->coefficients = midLowerCoeffs;
-        midUpper[i]->coefficients = midUpperCoeffs;
-        treble[i]->coefficients = trebleCoeffs;
         resonanceFilter[i]->coefficients = resonanceCoeffs;
         gateFilter[i]->coefficients = gateCoeffs;
+
+        subBass[i]->coefficients = subCoeffs;
+        bassLower[i]->coefficients = bassLCoeffs;
+        bassUpper[i]->coefficients = bassUCoeffs;
+        midLower[i]->coefficients = midLCoeffs;
+        midUpper[i]->coefficients = midUCoeffs;
+        treble[i]->coefficients = trebCoeffs;
     }
 
     float fMixDrop = 1.0f - 0.41f;
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
+    // This is the place where you'd normally do the guts of your plugin's audio processing...
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer(channel);
 
         for (int iSample = 0; iSample < buffer.getNumSamples(); ++iSample)
         {
-            // Get iSample from dInput
-            float dInput = channelData[iSample];
+            // Use float for the audio signal to match the buffer's datatype
+            float fInput = channelData[iSample];
 
-            // Use dInput consistently
-            float gatedInput = gateFilter[channel]->processSample(dInput);
-            double dGatedGain = NoiseGate(gatedInput, fGate, fGainReduce);
+            // 1. Dynamics stage (filtering the sidechain for the gate)
+            float fGatedSidechain = gateFilter[channel]->processSample(fInput);
+            float fGatedGain = NoiseGate(fGatedSidechain, fGate, fGainReduce);
 
-            double dDry = dInput * fInGain * dGatedGain;
-            double dWet = resonanceFilter[channel]->processSample(dDry) * fMixDrop;
+            // 2. Pre-gain and Dry path calculation
+            float fDry = fInput * fInGain * fGatedGain;
+            float fWet = resonanceFilter[channel]->processSample(fDry) * fMixDrop;
 
-            // Band Splitting
-            double dBand[4];
-            dBand[0] = subBass[channel]->processSample(dWet * fSubBassGain);
+            // 3. Multiband splitting logic
+            float fBand[4];
+            fBand[0] = subBass[channel]->processSample(fWet * fSubBassGain);
+            fBand[1] = (bassUpper[channel]->processSample(fWet * fBassGain) + bassLower[channel]->processSample(fDry * fBassGain));
+            fBand[2] = (midUpper[channel]->processSample(fWet * fMidGain) + midLower[channel]->processSample(fDry * fMidGain));
+            fBand[3] = treble[channel]->processSample(fWet * fTrebleGain);
 
-            // Use the channel index for the rest:
-            dBand[1] = (bassUpper[channel]->processSample(dWet * fBassGain) +
-                bassLower[channel]->processSample(dDry * fBassGain));
-            dBand[2] = (midUpper[channel]->processSample(dWet * fMidGain) +
-                midLower[channel]->processSample(dDry * fMidGain));
-            dBand[3] = treble[channel]->processSample(dWet * fTrebleGain);
-
-            // Tonal Distortion
-            double dSummedBands = 0;
+            // 4. Summing the processed bands
+            float fSummedBands = 0;
             for (int j = 0; j < 4; ++j)
-            {
-                dSummedBands += ProcessDistortion(dBand[j], iDistortTypes[j], fDistAmt);
-            }
+                fSummedBands += ProcessDistortion(fBand[j], iDistortTypes[j], fDistortAmt);
 
-            // Lo-Fi Effects
-            double dProcessedWet = LoFiEffects(dSummedBands, iLoFiType, fLoFiBlend, (float)iSample, (float)dSampleRate, iVinylCounter);
+            // 5. Final Lo-Fi character stage
+            float fProcessWet = LoFiEffects(fSummedBands, iLoFiType, fLoFiBlend, iSample, fSampleRate, iVinylCounter);
 
-            // Increment and wrap the counter (so it doesn't overflow)
-            iVinylCounter++;
-            if (iVinylCounter >= dSampleRate) iVinylCounter = 0;
+            iVinylCounter = (iVinylCounter + 1) % (int)fSampleRate;
 
-            // dOutput calculation (Wet/Dry mix)
-            double dOutput = (dProcessedWet * fWetDryControl) + (dDry * (1.0f - fWetDryControl));
-
-            channelData[iSample] = dOutput * fOutGain;
+            // 6. Wet/Dry crossfade and Output Gain
+            float fOutput = (fProcessWet * fWetDryControl) + (fDry * (1.0f - fWetDryControl));
+            channelData[iSample] = fOutput * fOutGain;
         }
     }
 }
-
 //==============================================================================
 bool DistortionPlusAudioProcessor::hasEditor() const
 {
