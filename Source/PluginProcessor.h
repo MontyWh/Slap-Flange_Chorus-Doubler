@@ -13,12 +13,12 @@
 //==============================================================================
 /**
 */
-class DistortionPlusAudioProcessor  : public juce::AudioProcessor
+class AutophonicAudioProcessor  : public juce::AudioProcessor
 {
 public:
     //==============================================================================
-    DistortionPlusAudioProcessor();
-    ~DistortionPlusAudioProcessor() override;
+    AutophonicAudioProcessor();
+    ~AutophonicAudioProcessor() override;
 
     //==============================================================================
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
@@ -26,7 +26,10 @@ public:
 
    #ifndef JucePlugin_PreferredChannelConfigurations
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
-   #endif
+    float processFilters(float fSubBassGain, float fBassGain, float fMidGain, float fTrebleGain, int channel,
+                         float fDry,
+                         float fWet);
+#endif
 
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
@@ -66,7 +69,6 @@ public:
     const std::vector<Preset>& getPresets() const { return presets; }
 
     //==============================================================================
-    float NoiseGate(float input, float control, float reduction);
 
 private:
     //==============================================================================
@@ -87,7 +89,7 @@ private:
     using MultiChannelFilter = juce::OwnedArray<Filter>;
 	MultiChannelFilter subBass, bassLower, bassUpper, midLower, midUpper, treble, resonanceFilter;
 
-    // Noise Gate Setup
+    // Gate Filter Setup
     int iMeasuredLength;
     int iMeasuredItems = 0;
     float fPeak = 0; // initially there is no peak value
@@ -95,10 +97,8 @@ private:
     float fGateTarget = 0; // the gate is opening/closing
 	MultiChannelFilter gateFilter; // a multi-channel filter for the noise gate
 
-    int iVinylCounter;
-
     float meterCounter = 0;
 
     //==============================================================================
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DistortionPlusAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AutophonicAudioProcessor)
 };

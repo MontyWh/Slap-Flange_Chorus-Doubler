@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="Ccf27d" name="DistortionPlus" projectType="audioplug" useAppConfig="0"
+<JUCERPROJECT id="Ccf27d" name="AutoPhonic FX" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
-  <MAINGROUP id="xoRhls" name="DistortionPlus">
+  <MAINGROUP id="xoRhls" name="AutoPhonic FX">
     <GROUP id="{35B63AA2-8A3B-568E-B8F0-FDFB57E78ADF}" name="Source">
       <FILE id="DozLLL" name="PluginExtra.h" compile="0" resource="0" file="Source/PluginExtra.h"/>
       <FILE id="VodiCa" name="PluginProcessor.cpp" compile="1" resource="0"
