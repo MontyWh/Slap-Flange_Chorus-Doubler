@@ -232,7 +232,7 @@ bool AutophonicAudioProcessor::isBusesLayoutSupported (const BusesLayout& layout
 }
 #endif
 
-float AutophonicAudioProcessor::processFilters(float fSubBassGain, float fBassGain, float fMidGain, float fTrebleGain, int channel, float fDry, float fWet)
+void AutophonicAudioProcessor::processFilters(float fSubBassGain, float fBassGain, float fMidGain, float fTrebleGain, int channel, float fDry, float fWet)
 {
 	// 2. Multiband splitting logic
 	float fBand[4];
@@ -242,10 +242,16 @@ float AutophonicAudioProcessor::processFilters(float fSubBassGain, float fBassGa
 	fBand[3] = treble[channel]->processSample(fWet * fTrebleGain);
 
 	// 3. Summing the processed bands
-	float fSummedBands = 0;
+	fWet = 0;
 	for (int j = 0; j < 4; ++j)
-		fSummedBands += fBand[j];
-	return fSummedBands;
+		fWet += fBand[j];
+}
+
+void AutophonicAudioProcessor::additionalProcess(float fSubBassGain, float fBassGain, float fMidGain, float fTrebleGain, float fMixDrop, int channel, float fWet, float& fDry)
+{
+	resonanceFilter[channel]->processSample(fDry);
+	fDry *= fMixDrop;
+	processFilters(fSubBassGain, fBassGain, fMidGain, fTrebleGain, channel, fDry, fWet);
 }
 
 void AutophonicAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
@@ -301,14 +307,15 @@ void AutophonicAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
             // Use float for the audio signal to match the buffer's datatype
             float fInput = channelData[iSample];
 
-            // 1. Pre-gain
-            float fDry = fInput * fInGain;
-            float fWet = resonanceFilter[channel]->processSample(fDry) * fMixDrop;
+            // 1. Pre-Output-Gain
+            float fWet = fInput * fInGain, fDry = fInput * fInGain;
 
-            float fSummedBands = processFilters(fSubBassGain, fBassGain, fMidGain, fTrebleGain, channel, fDry, fWet);
 
-            // 4. Wet/Dry crossfade and Output Gain
-            float fOutput = (fSummedBands * fWetDryControl) + (fDry * (1.0f - fWetDryControl));
+
+            additionalProcess(fSubBassGain, fBassGain, fMidGain, fTrebleGain, fMixDrop, channel, fWet, fDry);
+
+            // 2. Wet/Dry crossfade and Output Gain
+            float fOutput = (fWet * fWetDryControl) + (fDry * (1.0f - fWetDryControl));
             channelData[iSample] = fOutput * fOutGain;
         }
     }
