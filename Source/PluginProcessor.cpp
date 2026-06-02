@@ -37,7 +37,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout AutoTremolandoAudioProcessor
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    juce::StringArray tremoloOptions = { "Sine", "Triangle", "Square", "Sawtooth" };
+    // For now, only expose the Sine tremolo type. The ComboBox menus are
+    // intentionally kept in the UI as placeholders for a custom waveform
+    // system to be implemented later.
+    juce::StringArray tremoloOptions = { "Sine" };
 
     params.push_back(std::make_unique<juce::AudioParameterChoice>("SUB_TREMOLO", "Sub-Bass Tremolo", tremoloOptions, 0));
     params.push_back(std::make_unique<juce::AudioParameterChoice>("BASS_TREMOLO", "Bass Tremolo", tremoloOptions, 0));
@@ -233,14 +236,32 @@ bool AutoTremolandoAudioProcessor::isBusesLayoutSupported (const BusesLayout& la
 }
 #endif
 
-void AutoTremolandoAudioProcessor::processFilters(float fSubBassGain, float fBassGain, float fMidGain, float fTrebleGain, int channel, float fDry, float& fWet)
+//==============================================================================
+// Tremolo waveform generators
+float getTremoloSample(float phase, int type, float depth)
 {
-	// 2. Multiband splitting logic
+    // Always use a sine oscillator for now. The `type` parameter is kept
+    // for future waveform system but is ignored here so the output is
+    // consistently a sine-based tremolo.
+    float osc = std::sin(phase);
+    return (osc * depth * 0.5f) + 0.5f; // Convert to 0-1 range
+}
+
+void AutoTremolandoAudioProcessor::processFilters(float fSubBassGain, float fBassGain, float fMidGain, float fTrebleGain, int channel, float fDry, float& fWet, float fPhase, int* iTremTypes)
+{
+	// 2. Multiband splitting logic with per-band tremolo
 	float fBand[4];
-	fBand[0] = subBass[channel]->processSample(fWet * fSubBassGain);
-	fBand[1] = (bassUpper[channel]->processSample(fWet * fBassGain) + bassLower[channel]->processSample(fDry * fBassGain));
-	fBand[2] = (midUpper[channel]->processSample(fWet * fMidGain) + midLower[channel]->processSample(fDry * fMidGain));
-	fBand[3] = treble[channel]->processSample(fWet * fTrebleGain);
+	float fTremolo[4];
+	
+	fTremolo[0] = getTremoloSample(fPhase, iTremTypes[0], fSubBassGain);
+	fTremolo[1] = getTremoloSample(fPhase, iTremTypes[1], fBassGain);
+	fTremolo[2] = getTremoloSample(fPhase, iTremTypes[2], fMidGain);
+	fTremolo[3] = getTremoloSample(fPhase, iTremTypes[3], fTrebleGain);
+	
+	fBand[0] = subBass[channel]->processSample(fWet * fTremolo[0]);
+	fBand[1] = (bassUpper[channel]->processSample(fWet * fTremolo[1]) + bassLower[channel]->processSample(fDry * fTremolo[1]));
+	fBand[2] = (midUpper[channel]->processSample(fWet * fTremolo[2]) + midLower[channel]->processSample(fDry * fTremolo[2]));
+	fBand[3] = treble[channel]->processSample(fWet * fTremolo[3]);
 
 	// 3. Summing the processed bands
 	fWet = 0;
@@ -248,18 +269,19 @@ void AutoTremolandoAudioProcessor::processFilters(float fSubBassGain, float fBas
 		fWet += fBand[j];
 }
 
-void AutoTremolandoAudioProcessor::additionalProcess(float fSubBassGain, float fBassGain, float fMidGain, float fTrebleGain, float fMixDrop, int channel, float& fWet, float fDry)
+void AutoTremolandoAudioProcessor::additionalProcess(float fSubBassGain, float fBassGain, float fMidGain, float fTrebleGain, float fMixDrop, int channel, float& fWet, float fDry, float fPhase, int* iTremTypes)
 {
 	resonanceFilter[channel]->processSample(fDry);
 	fDry *= fMixDrop;
-	processFilters(fSubBassGain, fBassGain, fMidGain, fTrebleGain, channel, fDry, fWet);
+	processFilters(fSubBassGain, fBassGain, fMidGain, fTrebleGain, channel,
+        fDry, fWet, fPhase, iTremTypes);
 }
 
 void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels = getTotalNumInputChannels();
-
+ 
     // Fetch values using local variables to avoid multiple pointer dereferences in the loop
     float fInGain = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
     float fOutGain = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
@@ -300,6 +322,14 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
 
     float fMixDrop = 1.0f - 0.41f;
 
+    // Fetch tremolo types
+    int iTremTypes[4] = {
+        *apvts.getRawParameterValue("SUB_TREMOLO"),
+        *apvts.getRawParameterValue("BASS_TREMOLO"),
+        *apvts.getRawParameterValue("MID_TREMOLO"),
+        *apvts.getRawParameterValue("TREBLE_TREMOLO")
+    };
+
     // This is the place where you'd normally do the guts of your plugin's audio processing...
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
@@ -308,7 +338,7 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
         float fDry = 0.0f;
         float fOutput = 0.0f;
 
-        const float fTwoPI = 2 * M_PI;
+        const float fTwoPI = static_cast<float>(2.0f * M_PI);
         float fPhaseInc = (fTwoPI * fRate) / fSampleRate; // small steps
 
 
@@ -323,13 +353,14 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
             fPhasePos += fPhaseInc; // Move our oscillator forward
             if (fPhasePos > fTwoPI) fPhasePos = 0; // Wrap around
 
-            float fOscSig = sin(fPhasePos) * fDepth; // Range -1 to 1
+            // 2. Apply resonance filter
+            fWet = resonanceFilter[channel]->processSample(fWet);
+            fWet *= fMixDrop;
 
-            float fTrem = (fOscSig * 0.5) + 0.5; // Convert to the range 0 to 1
+            // 3. Process multiband filters with per-band tremolo
+            processFilters(fSubBassGain, fBassGain, fMidGain, fTrebleGain, channel, fDry, fWet, fPhasePos, iTremTypes);
 
-            additionalProcess(fSubBassGain, fBassGain, fMidGain, fTrebleGain, fMixDrop, channel, fWet, fDry);
-
-            // 2. Wet/Dry crossfade and Output Gain
+            // 4. Wet/Dry crossfade and Output Gain
             fOutput = (fWet * fWetDryControl) + (fDry * (1.0f - fWetDryControl));
             channelData[iSample] = fOutput * fOutGain;
         }
