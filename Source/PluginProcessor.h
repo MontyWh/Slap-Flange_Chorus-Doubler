@@ -27,9 +27,9 @@ public:
    #ifndef JucePlugin_PreferredChannelConfigurations
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
     void processFilters(float fSubBassGain, float fBassGain, float fMidGain, float fTrebleGain, int channel,
-                         float fDry, float fWet);
+                         float fDry, float& fWet);
     void additionalProcess(float fSubBassGain, float fBassGain, float fMidGain, float fTrebleGain, float fMixDrop,
-                           int channel, float fWet, float& fDry);
+                           int channel, float& fWet, float fDry);
 #endif
 
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;

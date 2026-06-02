@@ -34,7 +34,7 @@ private:
 	juce::ComboBox subTremMenu, bassTremMenu, midTremMenu, trebleTremMenu;
     juce::ComboBox presetMenu;
 
-    juce::Label subTremLabel, bassTremLabel, midTremLabel, trebleTremLabel;
+    juce::Label subTremLabel, bassTremLabel, midTremLabel, trebleTremLabel, presetLabel;
 
     // Menu Attachments
     using MenuAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
