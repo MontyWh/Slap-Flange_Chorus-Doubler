@@ -10,7 +10,7 @@
 #include "PluginEditor.h"
 
 //==============================================================================
-AutophonicAudioProcessorEditor::AutophonicAudioProcessorEditor (AutophonicAudioProcessor& p)
+AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTremolandoAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
     // Make sure that before the constructor has finished, you've set the
@@ -20,7 +20,7 @@ AutophonicAudioProcessorEditor::AutophonicAudioProcessorEditor (AutophonicAudioP
     juce::StringArray labelNames = {
         "In Gain", "Out Gain",
         "Sub-Bass", "Bass", "Mid", "Treble",
-        "Wet"
+        "Rate", "Depth", "Wet"
     };
 
     for (int i = 0; i < NUM_OF_PARAMETERS; ++i)
@@ -51,7 +51,9 @@ AutophonicAudioProcessorEditor::AutophonicAudioProcessorEditor (AutophonicAudioP
 	paramAttach[4] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "MID", parameters[4]);
 	paramAttach[5] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "TREBLE", parameters[5]);
 
-	paramAttach[6] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "WET", parameters[6]);
+	paramAttach[6] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "RATE", parameters[6]);
+	paramAttach[7] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "DEPTH", parameters[7]);
+	paramAttach[8] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "WET", parameters[8]);
 
     // Setup Preset Menu
     addAndMakeVisible(presetMenu);
@@ -74,12 +76,12 @@ AutophonicAudioProcessorEditor::AutophonicAudioProcessorEditor (AutophonicAudioP
     setSize (750, 500);
 }
 
-AutophonicAudioProcessorEditor::~AutophonicAudioProcessorEditor()
+AutoTremolandoAudioProcessorEditor::~AutoTremolandoAudioProcessorEditor()
 {
 }
 
 //==============================================================================
-void AutophonicAudioProcessorEditor::paint (juce::Graphics& g)
+void AutoTremolandoAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
@@ -89,7 +91,7 @@ void AutophonicAudioProcessorEditor::paint (juce::Graphics& g)
     //g.drawFittedText ("Hello World!", getLocalBounds(), juce::Justification::centred, 1);
 }
 
-void AutophonicAudioProcessorEditor::resized()
+void AutoTremolandoAudioProcessorEditor::resized()
 {
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor...
@@ -101,6 +103,8 @@ void AutophonicAudioProcessorEditor::resized()
     parameters[0].setBounds(20, 60, 80, 90);    // InGain
     parameters[1].setBounds(110, 60, 80, 90);   // OutGain
     parameters[6].setBounds(200, 60, 80, 90);   // Wet
+    parameters[7].setBounds(290, 60, 80, 90);   // Rate
+    parameters[8].setBounds(380, 60, 80, 90);   // Depth
 
     // --- Middle Row (Band EQ / Tonal Controls) ---
     parameters[2].setBounds(20, 190, 75, 85);   // SubBass

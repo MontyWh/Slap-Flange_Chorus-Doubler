@@ -12,16 +12,16 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
-const int NUM_OF_PARAMETERS = 7; // Update this to add more parameters
+const int NUM_OF_PARAMETERS = 9; // Update this to add more parameters
 
 //==============================================================================
 /**
 */
-class AutophonicAudioProcessorEditor  : public juce::AudioProcessorEditor
+class AutoTremolandoAudioProcessorEditor  : public juce::AudioProcessorEditor
 {
 public:
-    AutophonicAudioProcessorEditor (AutophonicAudioProcessor&);
-    ~AutophonicAudioProcessorEditor() override;
+    AutoTremolandoAudioProcessorEditor (AutoTremolandoAudioProcessor&);
+    ~AutoTremolandoAudioProcessorEditor() override;
 
     //==============================================================================
     void paint (juce::Graphics&) override;
@@ -31,11 +31,16 @@ private:
     juce::Slider parameters[NUM_OF_PARAMETERS];
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> paramAttach[NUM_OF_PARAMETERS];
     juce::Label labels[NUM_OF_PARAMETERS]; // [New] Added labels
-    
+	juce::ComboBox subTremMenu, bassTremMenu, midTremMenu, trebleTremMenu;
     juce::ComboBox presetMenu;
-    juce::Label presetLabel;
 
-    AutophonicAudioProcessor& audioProcessor; // This reference is provided as a quick way for your editor to access the processor object that created it.
+    juce::Label subTremLabel, bassTremLabel, midTremLabel, trebleTremLabel;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AutophonicAudioProcessorEditor)
+    // Menu Attachments
+    using MenuAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
+	std::unique_ptr<MenuAttachment> subTremAttach, bassTremAttach, midTremAttach, trebleTremAttach;
+
+    AutoTremolandoAudioProcessor& audioProcessor; // This reference is provided as a quick way for your editor to access the processor object that created it.
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AutoTremolandoAudioProcessorEditor)
 };

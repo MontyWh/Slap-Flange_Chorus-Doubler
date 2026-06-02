@@ -13,12 +13,12 @@
 //==============================================================================
 /**
 */
-class AutophonicAudioProcessor  : public juce::AudioProcessor
+class AutoTremolandoAudioProcessor  : public juce::AudioProcessor
 {
 public:
     //==============================================================================
-    AutophonicAudioProcessor();
-    ~AutophonicAudioProcessor() override;
+    AutoTremolandoAudioProcessor();
+    ~AutoTremolandoAudioProcessor() override;
 
     //==============================================================================
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
@@ -82,6 +82,8 @@ private:
     // Declare shared member variables here
     float fSampleRate;
 
+    float fPhasePos = 0;
+
 	// Use the base Filter class for per-iSample processing in a loop
 // In PluginProcessor.h
     using Filter = juce::dsp::IIR::Filter<float>; // Use float for better performance
@@ -90,16 +92,6 @@ private:
     using MultiChannelFilter = juce::OwnedArray<Filter>;
 	MultiChannelFilter subBass, bassLower, bassUpper, midLower, midUpper, treble, resonanceFilter;
 
-    // Gate Filter Setup
-    int iMeasuredLength;
-    int iMeasuredItems = 0;
-    float fPeak = 0; // initially there is no peak value
-    float fGateGain = 0; // initially the gate is closed
-    float fGateTarget = 0; // the gate is opening/closing
-	MultiChannelFilter gateFilter; // a multi-channel filter for the noise gate
-
-    float meterCounter = 0;
-
     //==============================================================================
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AutophonicAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AutoTremolandoAudioProcessor)
 };

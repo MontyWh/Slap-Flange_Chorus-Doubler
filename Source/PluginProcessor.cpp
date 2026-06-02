@@ -13,7 +13,7 @@
 #include "PluginExtra.h"
 
 //==============================================================================
-AutophonicAudioProcessor::AutophonicAudioProcessor()
+AutoTremolandoAudioProcessor::AutoTremolandoAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
      : AudioProcessor (BusesProperties()
                      #if ! JucePlugin_IsMidiEffect
@@ -28,12 +28,12 @@ AutophonicAudioProcessor::AutophonicAudioProcessor()
     initPresets();
 }
 
-AutophonicAudioProcessor::~AutophonicAudioProcessor()
+AutoTremolandoAudioProcessor::~AutoTremolandoAudioProcessor()
 {
 }
 
 //==============================================================================
-juce::AudioProcessorValueTreeState::ParameterLayout AutophonicAudioProcessor::createParameters()
+juce::AudioProcessorValueTreeState::ParameterLayout AutoTremolandoAudioProcessor::createParameters()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
@@ -48,22 +48,25 @@ juce::AudioProcessorValueTreeState::ParameterLayout AutophonicAudioProcessor::cr
     params.push_back(std::make_unique<juce::AudioParameterFloat>("MID", "Mid", 0.0f, 1.0f, 1.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("TREBLE", "Treble", 0.0f, 1.0f, 1.0f));
 
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("RATE", "Rate", 1.0f, 15.0f, 5.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("DEPTH", "Depth", 0.0f, 1.0f, 0.5f));
+
     params.push_back(std::make_unique<juce::AudioParameterFloat>("WET", "Wet", 0.0f, 1.0f, 1.0f));
 
     return { params.begin(), params.end() };
 }
 
-void AutophonicAudioProcessor::initPresets()
+void AutoTremolandoAudioProcessor::initPresets()
 {
     // Match your original APDI preset list (updated to match new parameter count)
     presets = {
-        { "Preset 1",      { 0.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f } },
-        { "Preset 2",   { 0.5f, 0.62f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f } },
-        { "Preset 3",     { 0.75f, 1.0f, 0.7f, 0.6f, 1.0f, 1.0f, 1.0f } }
+        { "Preset 1",      { 0.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 5.0f, 0.5f, 1.0f } },
+        { "Preset 2",   { 0.5f, 0.62f, 1.0f, 1.0f, 1.0f, 1.0f, 8.0f, 0.6f, 1.0f } },
+        { "Preset 3",     { 0.75f, 1.0f, 0.7f, 0.6f, 1.0f, 1.0f, 3.0f, 0.7f, 1.0f } }
     };
 }
 
-void AutophonicAudioProcessor::loadPreset(int index)
+void AutoTremolandoAudioProcessor::loadPreset(int index)
 {
     if (index < 0 || index >= presets.size()) return;
     auto& preset = presets[index];
@@ -71,7 +74,7 @@ void AutophonicAudioProcessor::loadPreset(int index)
     // The order here must match the order in createParameters()
     // It's safer to loop through parameters by ID if you have many
     const char* paramIDs[] = {
-        "INPUT_GAIN", "OUTPUT_GAIN", "SUB-BASS", "BASS", "MID", "TREBLE", "WET"
+        "INPUT_GAIN", "OUTPUT_GAIN", "SUB-BASS", "BASS", "MID", "TREBLE", "RATE", "DEPTH", "WET"
     };
 
     for (int i = 0; i < preset.values.size(); ++i)
@@ -82,12 +85,12 @@ void AutophonicAudioProcessor::loadPreset(int index)
 }
 
 //==============================================================================
-const juce::String AutophonicAudioProcessor::getName() const
+const juce::String AutoTremolandoAudioProcessor::getName() const
 {
     return JucePlugin_Name;
 }
 
-bool AutophonicAudioProcessor::acceptsMidi() const
+bool AutoTremolandoAudioProcessor::acceptsMidi() const
 {
    #if JucePlugin_WantsMidiInput
     return true;
@@ -96,7 +99,7 @@ bool AutophonicAudioProcessor::acceptsMidi() const
    #endif
 }
 
-bool AutophonicAudioProcessor::producesMidi() const
+bool AutoTremolandoAudioProcessor::producesMidi() const
 {
    #if JucePlugin_ProducesMidiOutput
     return true;
@@ -105,7 +108,7 @@ bool AutophonicAudioProcessor::producesMidi() const
    #endif
 }
 
-bool AutophonicAudioProcessor::isMidiEffect() const
+bool AutoTremolandoAudioProcessor::isMidiEffect() const
 {
    #if JucePlugin_IsMidiEffect
     return true;
@@ -114,49 +117,43 @@ bool AutophonicAudioProcessor::isMidiEffect() const
    #endif
 }
 
-double AutophonicAudioProcessor::getTailLengthSeconds() const
+double AutoTremolandoAudioProcessor::getTailLengthSeconds() const
 {
     return 0.0;
 }
 
-int AutophonicAudioProcessor::getNumPrograms()
+int AutoTremolandoAudioProcessor::getNumPrograms()
 {
     return 1;   // NB: some hosts don't cope very well if you tell them there are 0 programs,
                 // so this should be at least 1, even if you're not really implementing programs.
 }
 
-int AutophonicAudioProcessor::getCurrentProgram()
+int AutoTremolandoAudioProcessor::getCurrentProgram()
 {
     return 0;
 }
 
-void AutophonicAudioProcessor::setCurrentProgram (int index)
+void AutoTremolandoAudioProcessor::setCurrentProgram (int index)
 {
 }
 
-const juce::String AutophonicAudioProcessor::getProgramName (int index)
+const juce::String AutoTremolandoAudioProcessor::getProgramName (int index)
 {
     return {};
 }
 
-void AutophonicAudioProcessor::changeProgramName (int index, const juce::String& newName)
+void AutoTremolandoAudioProcessor::changeProgramName (int index, const juce::String& newName)
 {
 }
 
 //==============================================================================
-void AutophonicAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void AutoTremolandoAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     // Use this method as the place to do any pre-playback
     // initialisation that you need...
 
     int numChannels = getTotalNumInputChannels();
     fSampleRate = static_cast<float>(sampleRate);
-
-    // Initialise the measurement length (e.g., 10ms window)
-    iMeasuredLength = static_cast<int>(sampleRate * 0.01f);
-    iMeasuredItems = 0;
-    fPeak = 0;
-    fGateGain = 1.0f; // Start with gate open to avoid a "pop" on start
 
     juce::dsp::ProcessSpec spec;
     spec.sampleRate = sampleRate;
@@ -194,20 +191,17 @@ void AutophonicAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
 
         resonanceFilter.add(new Filter());
         resonanceFilter[i]->prepare(spec);
-
-        gateFilter.add(new Filter());
-        gateFilter[i]->prepare(spec);
     }
 }
 
-void AutophonicAudioProcessor::releaseResources()
+void AutoTremolandoAudioProcessor::releaseResources()
 {
     // When playback stops, you can use this as an opportunity to free up any
     // spare memory, etc.
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
-bool AutophonicAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool AutoTremolandoAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
   #if JucePlugin_IsMidiEffect
     juce::ignoreUnused (layouts);
@@ -232,7 +226,7 @@ bool AutophonicAudioProcessor::isBusesLayoutSupported (const BusesLayout& layout
 }
 #endif
 
-void AutophonicAudioProcessor::processFilters(float fSubBassGain, float fBassGain, float fMidGain, float fTrebleGain, int channel, float fDry, float fWet)
+void AutoTremolandoAudioProcessor::processFilters(float fSubBassGain, float fBassGain, float fMidGain, float fTrebleGain, int channel, float fDry, float fWet)
 {
 	// 2. Multiband splitting logic
 	float fBand[4];
@@ -247,14 +241,14 @@ void AutophonicAudioProcessor::processFilters(float fSubBassGain, float fBassGai
 		fWet += fBand[j];
 }
 
-void AutophonicAudioProcessor::additionalProcess(float fSubBassGain, float fBassGain, float fMidGain, float fTrebleGain, float fMixDrop, int channel, float fWet, float& fDry)
+void AutoTremolandoAudioProcessor::additionalProcess(float fSubBassGain, float fBassGain, float fMidGain, float fTrebleGain, float fMixDrop, int channel, float fWet, float& fDry)
 {
 	resonanceFilter[channel]->processSample(fDry);
 	fDry *= fMixDrop;
 	processFilters(fSubBassGain, fBassGain, fMidGain, fTrebleGain, channel, fDry, fWet);
 }
 
-void AutophonicAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels = getTotalNumInputChannels();
@@ -262,17 +256,30 @@ void AutophonicAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     // Fetch values using local variables to avoid multiple pointer dereferences in the loop
     float fInGain = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
     float fOutGain = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
-
-    float fWetDryControl = std::pow(*apvts.getRawParameterValue("WET"), 3.0f);
+    float fDistortAmt = *apvts.getRawParameterValue("DISTORTION");
 
     float fSubBassGain = std::pow(*apvts.getRawParameterValue("SUB-BASS"), 3.0f);
     float fBassGain = std::pow(*apvts.getRawParameterValue("BASS"), 3.0f);
     float fMidGain = std::pow(*apvts.getRawParameterValue("MID"), 3.0f);
     float fTrebleGain = std::pow(*apvts.getRawParameterValue("TREBLE"), 3.0f);
 
+    float fWetDryControl = std::pow(*apvts.getRawParameterValue("WET"), 3.0f);
+    float fPresence = *apvts.getRawParameterValue("PRESENCE");
+
+    float fRate = *apvts.getRawParameterValue("RATE");
+    float fDepth = *apvts.getRawParameterValue("DEPTH");
+
+    int iTremTypes[4] = {
+        *apvts.getRawParameterValue("SUB_DISTORT"),
+        *apvts.getRawParameterValue("BASS_DISTORT"),
+        *apvts.getRawParameterValue("MID_DISTORT"),
+        *apvts.getRawParameterValue("TREBLE_DISTORT")
+    };
+    int iLoFiType = (int)*apvts.getRawParameterValue("LO-FI_TYPE");
+
     // Update Filter Coefficients (using double for calculation accuracy)
-    auto resonanceCoeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, 10000.0f, 1.41f, 1.41f);
-    auto gateCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 20000.0f);
+    float presenceFreq = fPresence * (19000.0f) + 1000.0f;
+    auto resonanceCoeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, presenceFreq, 1.41f, 1.41f);
 
     // Define the static cutoff frequencies for your crossover
     auto subCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 60.0f);
@@ -285,7 +292,6 @@ void AutophonicAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
 	for (int i = 0; i < totalNumInputChannels; ++i)
     {
         resonanceFilter[i]->coefficients = resonanceCoeffs;
-        gateFilter[i]->coefficients = gateCoeffs;
 
         subBass[i]->coefficients = subCoeffs;
         bassLower[i]->coefficients = bassLCoeffs;
@@ -301,6 +307,13 @@ void AutophonicAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer(channel);
+        float fWet = 0.0f;
+        float fDry = 0.0f;
+        float fOutput = 0.0f;
+
+        const float fTwoPI = 2 * M_PI;
+        float fPhaseInc = (fTwoPI * fRate) / fSampleRate; // small steps
+
 
         for (int iSample = 0; iSample < buffer.getNumSamples(); ++iSample)
         {
@@ -308,31 +321,36 @@ void AutophonicAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
             float fInput = channelData[iSample];
 
             // 1. Pre-Output-Gain
-            float fWet = fInput * fInGain, fDry = fInput * fInGain;
+            fWet = fDry = fInput * fInGain;
 
+            fPhasePos += fPhaseInc; // Move our oscillator forward
+            if (fPhasePos > fTwoPI) fPhasePos = 0; // Wrap around
 
+            float fOscSig = sin(fPhasePos) * fDepth; // Range -1 to 1
+
+            float fTrem = (fOscSig * 0.5) + 0.5; // Convert to the range 0 to 1
 
             additionalProcess(fSubBassGain, fBassGain, fMidGain, fTrebleGain, fMixDrop, channel, fWet, fDry);
 
             // 2. Wet/Dry crossfade and Output Gain
-            float fOutput = (fWet * fWetDryControl) + (fDry * (1.0f - fWetDryControl));
+            fOutput = (fWet * fWetDryControl) + (fDry * (1.0f - fWetDryControl));
             channelData[iSample] = fOutput * fOutGain;
         }
     }
 }
 //==============================================================================
-bool AutophonicAudioProcessor::hasEditor() const
+bool AutoTremolandoAudioProcessor::hasEditor() const
 {
     return true; // (change this to false if you choose to not supply an editor)
 }
 
-juce::AudioProcessorEditor* AutophonicAudioProcessor::createEditor()
+juce::AudioProcessorEditor* AutoTremolandoAudioProcessor::createEditor()
 {
-    return new AutophonicAudioProcessorEditor (*this);
+    return new AutoTremolandoAudioProcessorEditor (*this);
 }
 
 //==============================================================================
-void AutophonicAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+void AutoTremolandoAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     // You should use this method to store your parameters in the memory block.
     // You could do that either as raw data, or use the XML or ValueTree classes
@@ -343,7 +361,7 @@ void AutophonicAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
     copyXmlToBinary(*xml, destData);
 }
 
-void AutophonicAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void AutoTremolandoAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
@@ -358,5 +376,5 @@ void AutophonicAudioProcessor::setStateInformation (const void* data, int sizeIn
 // This creates new instances of the plugin..
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new AutophonicAudioProcessor();
+    return new AutoTremolandoAudioProcessor();
 }
