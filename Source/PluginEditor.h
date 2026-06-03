@@ -12,7 +12,7 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
-const int NUM_OF_PARAMETERS = 9; // Update this to add more parameters
+const int NUM_OF_PARAMETERS = 11; // Update this to add more parameters
 
 //==============================================================================
 /**

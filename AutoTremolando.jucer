@@ -36,8 +36,8 @@
   <EXPORTFORMATS>
     <VS2026 targetFolder="Builds/VisualStudio2026">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" targetName="DistortionPlus"/>
-        <CONFIGURATION isDebug="0" name="Release" targetName="DistortionPlus"/>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="AutoTremolando"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="AutoTremolando"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="../../../../Program Files/JUCE/modules"/>

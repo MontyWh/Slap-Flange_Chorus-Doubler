@@ -26,9 +26,8 @@ public:
 
    #ifndef JucePlugin_PreferredChannelConfigurations
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
-    void processFilters(float fSubBassGain, float fBassGain, float fMidGain, float fTrebleGain, int channel,
-                         float fDry, float& fWet, float fPhase, int* iTremTypes);
-    void additionalProcess(float fSubBassGain, float fBassGain, float fMidGain, float fTrebleGain, float fMixDrop, int channel, float& fWet, float fDry, float fPhase, int* iTremTypes);
+    void processFilters(float depth, int channel, float fDry, float& fWet, float fPhase, int* iTremTypes);
+    void additionalProcess(float depth, float fMixDrop, int channel, float& fWet, float fDry, float fPhase, int* iTremTypes);
 #endif
 
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
@@ -81,7 +80,7 @@ private:
     // Declare shared member variables here
     float fSampleRate;
 
-    float fPhasePos = 0;
+	float fPhasePos[4] = { 0, 0, 0, 0 }; // Four phase positions for the tremolo LFOs
 
 	// Use the base Filter class for per-iSample processing in a loop
 // In PluginProcessor.h

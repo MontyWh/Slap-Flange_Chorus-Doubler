@@ -18,9 +18,8 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTrem
 
     // Define the names for the labels (should match the display names in createParameters)
     juce::StringArray labelNames = {
-        "In Gain", "Out Gain",
-        "Sub-Bass", "Bass", "Mid", "Treble",
-        "Rate", "Depth", "Wet"
+        "In Gain", "Out Gain", "Wet/Dry",
+		"Sub-Bass Depth", "Sub-Bass Rate", "Bass Depth", "Bass Rate", "Mid Depth", "Mid Rate", "Treble Depth", "Treble Rate"
     };
 
     for (int i = 0; i < NUM_OF_PARAMETERS; ++i)
@@ -36,18 +35,21 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTrem
         addAndMakeVisible(labels[i]);
     }
 
-    paramAttach[0] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "INPUT_GAIN", parameters[0]);
-    paramAttach[1] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "OUTPUT_GAIN", parameters[1]);
+	paramAttach[0] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "INPUT_GAIN", parameters[0]);
+	paramAttach[1] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "OUTPUT_GAIN", parameters[1]);
+	paramAttach[2] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "WET", parameters[2]);
 
-    paramAttach[2] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "SUB-BASS", parameters[2]);
-    paramAttach[3] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "BASS", parameters[3]);
-    paramAttach[4] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "MID", parameters[4]);
-    paramAttach[5] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "TREBLE", parameters[5]);
+	paramAttach[3] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "SUB-BASS_DEPTH", parameters[3]);
+    paramAttach[4] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "SUB-BASS_RATE", parameters[4]);
 
-    paramAttach[6] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "RATE", parameters[6]);
-    paramAttach[7] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "DEPTH", parameters[7]);
+	paramAttach[5] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "BASS_DEPTH", parameters[5]);
+	paramAttach[6] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "BASS_RATE", parameters[6]);
 
-    paramAttach[8] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "WET", parameters[8]);
+	paramAttach[7] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "MID_DEPTH", parameters[7]);
+	paramAttach[8] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "MID_RATE", parameters[8]);
+
+	paramAttach[9] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "TREBLE_DEPTH", parameters[9]);
+	paramAttach[10] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "TREBLE_RATE", parameters[10]);
 
     // Setup Menus
     auto setupMenu = [this](juce::ComboBox& box, std::unique_ptr<MenuAttachment>& attach, juce::String paramID)
@@ -61,10 +63,10 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTrem
             }
         };
 
-    setupMenu(subTremMenu, subTremAttach, "SUB_TREMOLO");
-    setupMenu(bassTremMenu, bassTremAttach, "BASS_TREMOLO");
-    setupMenu(midTremMenu, midTremAttach, "MID_TREMOLO");
-    setupMenu(trebleTremMenu, trebleTremAttach, "TREBLE_TREMOLO");
+    setupMenu(subTremMenu, subTremAttach, "SUB-BASS_TREMOLO");
+    setupMenu(bassTremMenu, bassTremAttach, "BASS_WAVE_TREMOLO");
+    setupMenu(midTremMenu, midTremAttach, "MID_WAVE_TREMOLO");
+    setupMenu(trebleTremMenu, trebleTremAttach, "TREBLE_WAVE_TREMOLO");
 
     // Helper to setup Menu Labels
     auto setupMenuLabel = [this](juce::Label& label, juce::String text, juce::Component& attachTo) {
@@ -123,15 +125,17 @@ void AutoTremolandoAudioProcessorEditor::resized()
     // --- Top Row (Gain Controls) ---
     parameters[0].setBounds(20, 60, 80, 90);    // InGain
     parameters[1].setBounds(110, 60, 80, 90);   // OutGain
-    parameters[8].setBounds(200, 60, 80, 90);   // Wet
-    parameters[6].setBounds(290, 60, 80, 90);   // Rate
-    parameters[7].setBounds(380, 60, 80, 90);   // Depth
+    parameters[2].setBounds(200, 60, 80, 90);   // Wet
 
     // --- Middle Row (Band EQ / Tonal Controls) ---
-    parameters[2].setBounds(20, 190, 75, 85);   // SubBass
-    parameters[3].setBounds(105, 190, 75, 85);  // Bass
-    parameters[4].setBounds(190, 190, 75, 85);  // Mid
-    parameters[5].setBounds(275, 190, 75, 85);  // Treble
+    parameters[3].setBounds(20, 190, 75, 85);   // Sub-Bass Depth
+    parameters[4].setBounds(105, 190, 75, 85);  // Sub-Bass Rate
+    parameters[5].setBounds(190, 190, 75, 85);  // Bass Depth
+	parameters[6].setBounds(275, 190, 75, 85);  // Bass Rate
+    parameters[7].setBounds(360, 190, 75, 85);  // Mid Depth
+	parameters[8].setBounds(445, 190, 75, 85);  // Mid Rate
+	parameters[9].setBounds(530, 190, 75, 85); // Treble Depth
+	parameters[10].setBounds(615, 190, 75, 85); // Treble Rate
 
     // --- Right Column (Tremolo Type Menus) ---
     int menuX = 600;
