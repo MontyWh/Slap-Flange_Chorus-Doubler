@@ -26,8 +26,9 @@ public:
 
    #ifndef JucePlugin_PreferredChannelConfigurations
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
-    void processFilters(float depth, int channel, float fDry, float& fWet, float fPhase, int* iTremTypes);
-    void additionalProcess(float depth, float fMixDrop, int channel, float& fWet, float fDry, float fPhase, int* iTremTypes);
+    void processFilters(float* depths, int channel, float fDry, float& fWet, float* fPhases, int* iTremTypes);
+    void additionalProcess(float* depths, float fMixDrop, int channel, float& fWet, float fDry, float* fPhases, int* iTremTypes);
+    float setTremoloShape(float phase, int type, float depth);
 #endif
 
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;

@@ -237,7 +237,7 @@ bool AutoTremolandoAudioProcessor::isBusesLayoutSupported (const BusesLayout& la
 
 //==============================================================================
 // Tremolo waveform generators
-float getTremoloSample(float phase, int type, float depth)
+float AutoTremolandoAudioProcessor::setTremoloShape(float phase, int type, float depth)
 {
     // Always use a sine oscillator for now. The `type` parameter is kept
     // for future waveform system but is ignored here so the output is
@@ -246,69 +246,71 @@ float getTremoloSample(float phase, int type, float depth)
     return (osc * depth * 0.5f) + 0.5f; // Convert to 0-1 range
 }
 
-void AutoTremolandoAudioProcessor::processFilters(float depth, int channel, float fDry, float& fWet, float fPhase, int* iTremTypes)
+void AutoTremolandoAudioProcessor::processFilters(float* depths, int channel, float fDry, float& fWet, float* fPhases, int* iTremTypes)
 {
-	// 2. Multiband splitting logic with per-band tremolo
-	float fBand[4];
-	float fTremolo[4];
-	
-	fTremolo[0] = getTremoloSample(fPhase, iTremTypes[0], depth);
-	
-	fBand[0] = subBass[channel]->processSample(fWet * fTremolo[0]);
-	fBand[1] = (bassUpper[channel]->processSample(fWet * fTremolo[1]) + bassLower[channel]->processSample(fDry * fTremolo[1]));
-	fBand[2] = (midUpper[channel]->processSample(fWet * fTremolo[2]) + midLower[channel]->processSample(fDry * fTremolo[2]));
-	fBand[3] = treble[channel]->processSample(fWet * fTremolo[3]);
+    // Multiband splitting logic with per-band tremolo
+    float fBand[4];
+    float fTremolo[4];
 
-	// 3. Summing the processed bands
-	fWet = 0;
-	for (int j = 0; j < 4; ++j)
-		fWet += fBand[j];
+    // Calculate the distinct LFO modulator value for each band using its unique phase position and depth
+    for (int i = 0; i < 4; ++i)
+    {
+        fTremolo[i] = setTremoloShape(fPhases[i], iTremTypes[i], depths[i]);
+    }
+
+    fBand[0] = subBass[channel]->processSample(fWet * fTremolo[0]);
+    fBand[1] = (bassUpper[channel]->processSample(fWet * fTremolo[1]) + bassLower[channel]->processSample(fDry * fTremolo[1]));
+    fBand[2] = (midUpper[channel]->processSample(fWet * fTremolo[2]) + midLower[channel]->processSample(fDry * fTremolo[2]));
+    fBand[3] = treble[channel]->processSample(fWet * fTremolo[3]);
+
+    // Summing the processed bands back together
+    fWet = 0.0f;
+    for (int j = 0; j < 4; ++j)
+        fWet += fBand[j];
 }
 
-void AutoTremolandoAudioProcessor::additionalProcess(float depth, float fMixDrop, int channel, float& fWet, float fDry, float fPhase, int* iTremTypes)
+void AutoTremolandoAudioProcessor::additionalProcess(float* depths, float fMixDrop, int channel, float& fWet, float fDry, float* fPhases, int* iTremTypes)
 {
-	resonanceFilter[channel]->processSample(fDry);
-	fDry *= fMixDrop;
-	processFilters(depth, channel, fDry, fWet, fPhase, iTremTypes);
+    resonanceFilter[channel]->processSample(fDry);
+    fDry *= fMixDrop;
+    processFilters(depths, channel, fDry, fWet, fPhases, iTremTypes);
 }
 
 void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels = getTotalNumInputChannels();
- 
+
     // Fetch values using local variables to avoid multiple pointer dereferences in the loop
     float fInGain = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
     float fOutGain = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
     float fWetDryControl = std::pow(*apvts.getRawParameterValue("WET"), 3.0f);
 
     float fRate[4] = {
-        std::pow(*apvts.getRawParameterValue("SUB_BASS_RATE"), 3.0f),
+        std::pow(*apvts.getRawParameterValue("SUB-BASS_RATE"), 3.0f),
         std::pow(*apvts.getRawParameterValue("BASS_RATE"), 3.0f),
         std::pow(*apvts.getRawParameterValue("MID_RATE"), 3.0f),
         std::pow(*apvts.getRawParameterValue("TREBLE_RATE"), 3.0f)
     };
     float fDepth[4] = {
-        std::pow(*apvts.getRawParameterValue("SUB_BASS_DEPTH"), 3.0f),
+        std::pow(*apvts.getRawParameterValue("SUB-BASS_DEPTH"), 3.0f),
         std::pow(*apvts.getRawParameterValue("BASS_DEPTH"), 3.0f),
         std::pow(*apvts.getRawParameterValue("MID_DEPTH"), 3.0f),
         std::pow(*apvts.getRawParameterValue("TREBLE_DEPTH"), 3.0f)
     };
 
-    // Update Filter Coefficients (using double for calculation accuracy)
-    float fPresence = *apvts.getRawParameterValue("PRESENCE");
-    float presenceFreq = fPresence * (19000.0f) + 1000.0f;
+    // Update Filter Coefficients
+    float presenceFreq = 5000.0f; // Temporary fallback to prevent crashing on the missing 'PRESENCE' parameter
     auto resonanceCoeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, presenceFreq, 1.41f, 1.41f);
 
-    // Define the static cutoff frequencies for your crossover
     auto subCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 60.0f);
     auto bassLCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 250.0f);
     auto bassUCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 60.0f);
     auto midLCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 2000.0f);
     auto midUCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 250.0f);
     auto trebCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 2000.0f);
-	
-	for (int i = 0; i < totalNumInputChannels; ++i)
+
+    for (int i = 0; i < totalNumInputChannels; ++i)
     {
         resonanceFilter[i]->coefficients = resonanceCoeffs;
         subBass[i]->coefficients = subCoeffs;
@@ -321,53 +323,50 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
 
     float fMixDrop = 1.0f - 0.41f;
 
-    // Fetch tremolo types
+    // Fetch tremolo types (Safely static casted to int for your array checks)
     int iTremTypes[4] = {
-        *apvts.getRawParameterValue("SUB-BASS_TREMOLO"),
-        *apvts.getRawParameterValue("BASS_TREMOLO"),
-        *apvts.getRawParameterValue("MID_TREMOLO"),
-        *apvts.getRawParameterValue("TREBLE_TREMOLO")
+        static_cast<int>(*apvts.getRawParameterValue("SUB-BASS_WAVE_TYPE")),
+        static_cast<int>(*apvts.getRawParameterValue("BASS_WAVE_TYPE")),
+        static_cast<int>(*apvts.getRawParameterValue("MID_WAVE_TYPE")),
+        static_cast<int>(*apvts.getRawParameterValue("TREBLE_WAVE_TYPE"))
     };
 
-    // This is the place where you'd normally do the guts of your plugin's audio processing...
+    constexpr float fTwoPI = static_cast<float> (2.0f * M_PI);
+    float fPhaseInc[4];
+    for (int i = 0; i < 4; i++) fPhaseInc[i] = (fTwoPI * fRate[i]) / fSampleRate; // small steps
+
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer(channel);
-        float fWet = 0.0f;
-        float fDry = 0.0f;
-        float fOutput = 0.0f;
-
-        constexpr float fTwoPI = static_cast<float>(2.0f * M_PI);
-        float fPhaseInc[4];
-    	for (int i = 0; i < 4; i++) fPhaseInc[i] = (fTwoPI * fRate[i]) / fSampleRate; // small steps
 
         for (int iSample = 0; iSample < buffer.getNumSamples(); ++iSample)
         {
-            // Use float for the audio signal to match the buffer's datatype
             float fInput = channelData[iSample];
 
             // 1. Pre-Output-Gain
-            fWet = fDry = fInput * fInGain;
+            float fDry = fInput * fInGain;
+            float fWet = fDry;
 
-            for (int i = 0; i < 4; i++)
+            // Increment LFO phases outside the band loop, only once per sample frame
+            if (channel == 0)
             {
-                fPhasePos[i] += fPhaseInc[i]; // Move our oscillator forward
-                if (fPhasePos[i] > fTwoPI) fPhasePos[i] = 0; // Wrap around
-
-                // 2. Apply resonance filter
-                fWet = resonanceFilter[channel]->processSample(fWet);
-                fWet *= fMixDrop;
-
-                // 3. Process multiband filters with per-band tremolo
-                additionalProcess(fDepth[i], fMixDrop, channel, fWet, fDry, fPhasePos[i], iTremTypes);
+                for (int i = 0; i < 4; i++)
+                {
+                    fPhasePos[i] += fPhaseInc[i]; // Move our oscillator forward
+                    if (fPhasePos[i] > fTwoPI) fPhasePos[i] -= fTwoPI; // Wrap around safely
+                }
             }
 
+            // 2 & 3. Process multiband filters passing down the complete rate/depth arrays
+            additionalProcess(fDepth, fMixDrop, channel, fWet, fDry, fPhasePos, iTremTypes);
+
             // 4. Wet/Dry crossfade and Output Gain
-            fOutput = (fWet * fWetDryControl) + (fDry * (1.0f - fWetDryControl));
+            float fOutput = (fWet * fWetDryControl) + (fDry * (1.0f - fWetDryControl));
             channelData[iSample] = fOutput * fOutGain;
         }
     }
 }
+
 //==============================================================================
 bool AutoTremolandoAudioProcessor::hasEditor() const
 {
