@@ -11,27 +11,21 @@
 #include <JuceHeader.h>
 
 //==============================================================================
-/**
-*/
-class AutoTremolandoAudioProcessor  : public juce::AudioProcessor
+class AutoTremolandoAudioProcessor : public juce::AudioProcessor
 {
 public:
-    //==============================================================================
     AutoTremolandoAudioProcessor();
     ~AutoTremolandoAudioProcessor() override;
 
     //==============================================================================
-    void prepareToPlay (double sampleRate, int samplesPerBlock) override;
+    void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
 
-   #ifndef JucePlugin_PreferredChannelConfigurations
-    bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
-    void processFilters(float* depths, int channel, float fDry, float& fWet, float* fPhases, int* iTremTypes);
-    void additionalProcess(float* depths, float fMixDrop, int channel, float& fWet, float fDry, float* fPhases, int* iTremTypes);
-    float setTremoloShape(float phase, int type, float depth);
+#ifndef JucePlugin_PreferredChannelConfigurations
+    bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
 #endif
 
-    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
     //==============================================================================
     juce::AudioProcessorEditor* createEditor() override;
@@ -48,18 +42,17 @@ public:
     //==============================================================================
     int getNumPrograms() override;
     int getCurrentProgram() override;
-    void setCurrentProgram (int index) override;
-    const juce::String getProgramName (int index) override;
-    void changeProgramName (int index, const juce::String& newName) override;
+    void setCurrentProgram(int index) override;
+    const juce::String getProgramName(int index) override;
+    void changeProgramName(int index, const juce::String& newName) override;
 
     //==============================================================================
-    void getStateInformation (juce::MemoryBlock& destData) override;
-    void setStateInformation (const void* data, int sizeInBytes) override;
+    void getStateInformation(juce::MemoryBlock& destData) override;
+    void setStateInformation(const void* data, int sizeInBytes) override;
 
     juce::AudioProcessorValueTreeState apvts;
-    juce::UndoManager undoManager; // Don't know where to use this??
+    juce::UndoManager undoManager;
 
-    // Preset structure to hold values
     struct Preset {
         juce::String name;
         std::vector<float> values;
@@ -68,29 +61,26 @@ public:
     void loadPreset(int index);
     const std::vector<Preset>& getPresets() const { return presets; }
 
-    //==============================================================================
-
 private:
-    //==============================================================================
     std::vector<Preset> presets;
-    void initPresets(); // Define your hardcoded presets here
-
+    void initPresets();
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
 
     //==============================================================================
-    // Declare shared member variables here
-    float fSampleRate;
+    float fSampleRate = 44100.0f;
 
-	float fPhasePos[4] = { 0, 0, 0, 0 }; // Four phase positions for the tremolo LFOs
+    // Per-band phase accumulators
+    float fPhasePos[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 
-	// Use the base Filter class for per-iSample processing in a loop
-// In PluginProcessor.h
-    using Filter = juce::dsp::IIR::Filter<float>; // Use float for better performance
+    // Per-band RATE and DEPTH
+    float fRate[4] = { 5.0f, 5.0f, 5.0f, 5.0f };
+    float fDepth[4] = { 0.5f, 0.5f, 0.5f, 0.5f };
 
-    // Create arrays for each filter band
+    using Filter = juce::dsp::IIR::Filter<float>;
     using MultiChannelFilter = juce::OwnedArray<Filter>;
-	MultiChannelFilter subBass, bassLower, bassUpper, midLower, midUpper, treble, resonanceFilter;
 
-    //==============================================================================
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AutoTremolandoAudioProcessor)
+    MultiChannelFilter subBass, bassLower, bassUpper, midLower, midUpper, treble, resonanceFilter;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AutoTremolandoAudioProcessor)
 };
+

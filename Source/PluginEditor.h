@@ -12,35 +12,38 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
-const int NUM_OF_PARAMETERS = 11; // Update this to add more parameters
+// 16 parameters total (menus + gains + per-band rate/depth + wet/presence)
+//==============================================================================
+const int NUM_OF_PARAMETERS = 16;
 
 //==============================================================================
-/**
-*/
-class AutoTremolandoAudioProcessorEditor  : public juce::AudioProcessorEditor
+class AutoTremolandoAudioProcessorEditor : public juce::AudioProcessorEditor
 {
 public:
-    AutoTremolandoAudioProcessorEditor (AutoTremolandoAudioProcessor&);
+    AutoTremolandoAudioProcessorEditor(AutoTremolandoAudioProcessor&);
     ~AutoTremolandoAudioProcessorEditor() override;
 
-    //==============================================================================
-    void paint (juce::Graphics&) override;
+    void paint(juce::Graphics&) override;
     void resized() override;
 
 private:
+    // Sliders for all 16 parameters
     juce::Slider parameters[NUM_OF_PARAMETERS];
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> paramAttach[NUM_OF_PARAMETERS];
-    juce::Label labels[NUM_OF_PARAMETERS]; // [New] Added labels
-	juce::ComboBox subTremMenu, bassTremMenu, midTremMenu, trebleTremMenu;
-    juce::ComboBox presetMenu;
+    juce::Label labels[NUM_OF_PARAMETERS];
 
-    juce::Label subTremLabel, bassTremLabel, midTremLabel, trebleTremLabel, presetLabel;
+    // Tremolo type menus
+    juce::ComboBox subTremMenu, bassTremMenu, midTremMenu, trebleTremMenu;
+    juce::Label subTremLabel, bassTremLabel, midTremLabel, trebleTremLabel;
 
-    // Menu Attachments
     using MenuAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
-	std::unique_ptr<MenuAttachment> subTremAttach, bassTremAttach, midTremAttach, trebleTremAttach;
+    std::unique_ptr<MenuAttachment> subTremAttach, bassTremAttach, midTremAttach, trebleTremAttach;
 
-    AutoTremolandoAudioProcessor& audioProcessor; // This reference is provided as a quick way for your editor to access the processor object that created it.
+    // Preset menu
+    juce::ComboBox presetMenu;
+    juce::Label presetLabel;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AutoTremolandoAudioProcessorEditor)
+    AutoTremolandoAudioProcessor& audioProcessor;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AutoTremolandoAudioProcessorEditor)
 };

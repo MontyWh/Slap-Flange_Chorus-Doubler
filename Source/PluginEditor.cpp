@@ -1,147 +1,216 @@
-/*
-  ==============================================================================
-
-    This file contains the basic framework code for a JUCE plugin editor.
-
-  ==============================================================================
-*/
-
-#include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "PluginProcessor.h"
 
 //==============================================================================
-AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTremolandoAudioProcessor& p)
-    : AudioProcessorEditor (&p), audioProcessor (p)
+// Helper for consistent slider setup
+static void setupSlider(juce::Slider& s)
 {
-    // Make sure that before the constructor has finished, you've set the
-    // editor's size to whatever you need it to be.
+    s.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+}
 
-    // Define the names for the labels (should match the display names in createParameters)
-    juce::StringArray labelNames = {
-        "In Gain", "Out Gain", "Wet/Dry",
-		"Sub-Bass Depth", "Sub-Bass Rate", "Bass Depth", "Bass Rate", "Mid Depth", "Mid Rate", "Treble Depth", "Treble Rate"
+//==============================================================================
+
+AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremolandoAudioProcessor& p)
+    : AudioProcessorEditor(&p), audioProcessor(p)
+{
+    setSize(900, 600);
+
+    //======================================================================
+    // Parameter IDs in the exact order used by the processor
+    //======================================================================
+    const juce::String paramIDs[NUM_OF_PARAMETERS] =
+    {
+        "SUB_TREMOLO", "BASS_TREMOLO", "MID_TREMOLO", "TREBLE_TREMOLO",
+        "INPUT_GAIN", "OUTPUT_GAIN",
+        "SUB_TREM_RATE", "BASS_TREM_RATE", "MID_TREM_RATE", "TREBLE_TREM_RATE",
+        "SUB_TREM_DEPTH", "BASS_TREM_DEPTH", "MID_TREM_DEPTH", "TREBLE_TREM_DEPTH",
+        "WET", "PRESENCE"
     };
 
+    const juce::String paramLabels[NUM_OF_PARAMETERS] =
+    {
+        "Sub Trem Type", "Bass Trem Type", "Mid Trem Type", "Treble Trem Type",
+        "Input", "Output",
+        "Sub Rate", "Bass Rate", "Mid Rate", "Treble Rate",
+        "Sub Depth", "Bass Depth", "Mid Depth", "Treble Depth",
+        "Wet", "Presence"
+    };
+
+    //======================================================================
+    // Create sliders + labels
+    //======================================================================
     for (int i = 0; i < NUM_OF_PARAMETERS; ++i)
     {
-        parameters[i].setSliderStyle(juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag);
-        parameters[i].setTextBoxStyle(juce::Slider::TextBoxBelow, true, 80, 20);
+        setupSlider(parameters[i]);
         addAndMakeVisible(parameters[i]);
 
-        // [New] Setup Labels
-        labels[i].setText(labelNames[i], juce::dontSendNotification);
+        labels[i].setText(paramLabels[i], juce::dontSendNotification);
         labels[i].setJustificationType(juce::Justification::centred);
-        labels[i].attachToComponent(&parameters[i], false); // false = place label above/below slider
         addAndMakeVisible(labels[i]);
+
+        paramAttach[i] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            audioProcessor.apvts, paramIDs[i], parameters[i]);
     }
 
-	paramAttach[0] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "INPUT_GAIN", parameters[0]);
-	paramAttach[1] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "OUTPUT_GAIN", parameters[1]);
-	paramAttach[2] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "WET", parameters[2]);
+    //======================================================================
+    // Tremolo type menus
+    //======================================================================
+    subTremMenu.addItemList({ "Sine", "Placeholder 2", "Placeholder 3", "Placeholder 4", "Placeholder 5" }, 1);
+    bassTremMenu.addItemList({ "Sine", "Placeholder 2", "Placeholder 3", "Placeholder 4", "Placeholder 5" }, 1);
+    midTremMenu.addItemList({ "Sine", "Placeholder 2", "Placeholder 3", "Placeholder 4", "Placeholder 5" }, 1);
+    trebleTremMenu.addItemList({ "Sine", "Placeholder 2", "Placeholder 3", "Placeholder 4", "Placeholder 5" }, 1);
 
-	paramAttach[3] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "SUB-BASS_DEPTH", parameters[3]);
-    paramAttach[4] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "SUB-BASS_RATE", parameters[4]);
+    addAndMakeVisible(subTremMenu);
+    addAndMakeVisible(bassTremMenu);
+    addAndMakeVisible(midTremMenu);
+    addAndMakeVisible(trebleTremMenu);
 
-	paramAttach[5] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "BASS_DEPTH", parameters[5]);
-	paramAttach[6] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "BASS_RATE", parameters[6]);
+    subTremLabel.setText("Sub Type", juce::dontSendNotification);
+    bassTremLabel.setText("Bass Type", juce::dontSendNotification);
+    midTremLabel.setText("Mid Type", juce::dontSendNotification);
+    trebleTremLabel.setText("Treble Type", juce::dontSendNotification);
 
-	paramAttach[7] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "MID_DEPTH", parameters[7]);
-	paramAttach[8] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "MID_RATE", parameters[8]);
+    subTremLabel.setJustificationType(juce::Justification::centred);
+    bassTremLabel.setJustificationType(juce::Justification::centred);
+    midTremLabel.setJustificationType(juce::Justification::centred);
+    trebleTremLabel.setJustificationType(juce::Justification::centred);
 
-	paramAttach[9] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "TREBLE_DEPTH", parameters[9]);
-	paramAttach[10] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "TREBLE_RATE", parameters[10]);
+    addAndMakeVisible(subTremLabel);
+    addAndMakeVisible(bassTremLabel);
+    addAndMakeVisible(midTremLabel);
+    addAndMakeVisible(trebleTremLabel);
 
-    // Setup Menus
-    auto setupMenu = [this](juce::ComboBox& box, std::unique_ptr<MenuAttachment>& attach, juce::String paramID)
-        {
-            auto* param = dynamic_cast<juce::AudioParameterChoice*>(audioProcessor.apvts.getParameter(paramID));
-            if (param != nullptr)
-            {
-                box.addItemList(param->choices, 1);
-                addAndMakeVisible(box);
-                attach = std::make_unique<MenuAttachment>(audioProcessor.apvts, paramID, box);
-            }
-        };
+    subTremAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "SUB_TREMOLO", subTremMenu);
+    bassTremAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "BASS_TREMOLO", bassTremMenu);
+    midTremAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "MID_TREMOLO", midTremMenu);
+    trebleTremAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "TREBLE_TREMOLO", trebleTremMenu);
 
-    setupMenu(subTremMenu, subTremAttach, "SUB-BASS_TREMOLO");
-    setupMenu(bassTremMenu, bassTremAttach, "BASS_WAVE_TREMOLO");
-    setupMenu(midTremMenu, midTremAttach, "MID_WAVE_TREMOLO");
-    setupMenu(trebleTremMenu, trebleTremAttach, "TREBLE_WAVE_TREMOLO");
+    //======================================================================
+    // Preset menu
+    //======================================================================
+    presetLabel.setText("Presets", juce::dontSendNotification);
+    presetLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(presetLabel);
 
-    // Helper to setup Menu Labels
-    auto setupMenuLabel = [this](juce::Label& label, juce::String text, juce::Component& attachTo) {
-        label.setText(text, juce::dontSendNotification);
-        label.setJustificationType(juce::Justification::left);
-        label.attachToComponent(&attachTo, true); // true = place label to the left of the menu
-        addAndMakeVisible(label);
-        };
-
-    // Link labels to menus  
-    setupMenuLabel(presetLabel, "Preset:", presetMenu);
-    setupMenuLabel(subTremLabel, "Sub-Bass Type:", subTremMenu);
-    setupMenuLabel(bassTremLabel, "Bass Type:", bassTremMenu);
-    setupMenuLabel(midTremLabel, "Mid Type:", midTremMenu);
-    setupMenuLabel(trebleTremLabel, "Treble Type:", trebleTremMenu);
-
-    // Setup Preset Menu
+    presetMenu.addItem("Preset 1", 1);
+    presetMenu.addItem("Preset 2", 2);
+    presetMenu.addItem("Preset 3", 3);
     addAndMakeVisible(presetMenu);
-    presetMenu.setText("Select Preset...");
 
-    int id = 1;
-    for (auto& p : audioProcessor.getPresets())
-        presetMenu.addItem(p.name, id++);
-
-    presetMenu.onChange = [this]() {
-        audioProcessor.loadPreset(presetMenu.getSelectedItemIndex());
+    presetMenu.onChange = [this]()
+        {
+            int index = presetMenu.getSelectedId() - 1;
+            audioProcessor.loadPreset(index);
         };
-
-
-    setSize(750, 500);
-}
-
-AutoTremolandoAudioProcessorEditor::~AutoTremolandoAudioProcessorEditor()
-{
 }
 
 //==============================================================================
-void AutoTremolandoAudioProcessorEditor::paint (juce::Graphics& g)
-{
-    // (Our component is opaque, so we must completely fill the background with a solid colour)
-    g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
 
-    g.setColour (juce::Colours::black);
-    //g.setFont (juce::FontOptions (15.0f));
-    //g.drawFittedText ("Hello World!", getLocalBounds(), juce::Justification::centred, 1);
+AutoTremolandoAudioProcessorEditor::~AutoTremolandoAudioProcessorEditor() {}
+
+//==============================================================================
+
+void AutoTremolandoAudioProcessorEditor::paint(juce::Graphics& g)
+{
+    g.fillAll(juce::Colours::black);
+    g.setColour(juce::Colours::white);
+    g.setFont(18.0f);
+    g.drawFittedText("AutoTremolando", getLocalBounds(), juce::Justification::centredTop, 1);
 }
 
+//==============================================================================
 void AutoTremolandoAudioProcessorEditor::resized()
 {
-    // This is generally where you'll want to lay out the positions of any
-    // subcomponents in your editor...
+    int margin = 20;
+    int sliderW = 120;
+    int sliderH = 120;
+    int labelH = 20;
 
-// --- Top Bar (Presets) ---
-    presetMenu.setBounds(80, 10, 220, 25);
+    //==============================================================
+    // Sliders in literal DSP signal-chain order (left grid)
+    //==============================================================
+    int x = margin;
+    int y = 60;
 
-    // --- Top Row (Gain Controls) ---
-    parameters[0].setBounds(20, 60, 80, 90);    // InGain
-    parameters[1].setBounds(110, 60, 80, 90);   // OutGain
-    parameters[2].setBounds(200, 60, 80, 90);   // Wet
+    // Row 1
+    parameters[4].setBounds(x, y, sliderW, sliderH);   // Input
+    labels[4].setBounds(x, y + sliderH, sliderW, labelH);
+    x += sliderW + margin;
 
-    // --- Middle Row (Band EQ / Tonal Controls) ---
-    parameters[3].setBounds(20, 190, 75, 85);   // Sub-Bass Depth
-    parameters[4].setBounds(105, 190, 75, 85);  // Sub-Bass Rate
-    parameters[5].setBounds(190, 190, 75, 85);  // Bass Depth
-	parameters[6].setBounds(275, 190, 75, 85);  // Bass Rate
-    parameters[7].setBounds(360, 190, 75, 85);  // Mid Depth
-	parameters[8].setBounds(445, 190, 75, 85);  // Mid Rate
-	parameters[9].setBounds(530, 190, 75, 85); // Treble Depth
-	parameters[10].setBounds(615, 190, 75, 85); // Treble Rate
+    parameters[15].setBounds(x, y, sliderW, sliderH);  // Presence
+    labels[15].setBounds(x, y + sliderH, sliderW, labelH);
+    x += sliderW + margin;
 
-    // --- Right Column (Tremolo Type Menus) ---
-    int menuX = 600;
-    int menuWidth = 140;
-    subTremMenu.setBounds(menuX, 40, menuWidth, 30);
-    bassTremMenu.setBounds(menuX, 90, menuWidth, 30);
-    midTremMenu.setBounds(menuX, 140, menuWidth, 30);
-    trebleTremMenu.setBounds(menuX, 190, menuWidth, 30);
+    parameters[6].setBounds(x, y, sliderW, sliderH);   // Sub Rate
+    labels[6].setBounds(x, y + sliderH, sliderW, labelH);
+    x += sliderW + margin;
+
+    parameters[7].setBounds(x, y, sliderW, sliderH);   // Bass Rate
+    labels[7].setBounds(x, y + sliderH, sliderW, labelH);
+
+    // Row 2
+    x = margin;
+    y += sliderH + labelH + margin;
+
+    parameters[8].setBounds(x, y, sliderW, sliderH);   // Mid Rate
+    labels[8].setBounds(x, y + sliderH, sliderW, labelH);
+    x += sliderW + margin;
+
+    parameters[9].setBounds(x, y, sliderW, sliderH);   // Treble Rate
+    labels[9].setBounds(x, y + sliderH, sliderW, labelH);
+    x += sliderW + margin;
+
+    parameters[10].setBounds(x, y, sliderW, sliderH);  // Sub Depth
+    labels[10].setBounds(x, y + sliderH, sliderW, labelH);
+    x += sliderW + margin;
+
+    parameters[11].setBounds(x, y, sliderW, sliderH);  // Bass Depth
+    labels[11].setBounds(x, y + sliderH, sliderW, labelH);
+
+    // Row 3
+    x = margin;
+    y += sliderH + labelH + margin;
+
+    parameters[12].setBounds(x, y, sliderW, sliderH);  // Mid Depth
+    labels[12].setBounds(x, y + sliderH, sliderW, labelH);
+    x += sliderW + margin;
+
+    parameters[13].setBounds(x, y, sliderW, sliderH);  // Treble Depth
+    labels[13].setBounds(x, y + sliderH, sliderW, labelH);
+    x += sliderW + margin;
+
+    parameters[14].setBounds(x, y, sliderW, sliderH);  // Wet
+    labels[14].setBounds(x, y + sliderH, sliderW, labelH);
+    x += sliderW + margin;
+
+    parameters[5].setBounds(x, y, sliderW, sliderH);   // Output (last in chain)
+    labels[5].setBounds(x, y + sliderH, sliderW, labelH);
+
+    //==============================================================
+    // Right-side menus (unchanged)
+    //==============================================================
+    int menuW = 140;
+    int menuH = 25;
+
+    int menuX = getWidth() - menuW - margin;
+    int menuY = 60;
+
+    presetLabel.setBounds(menuX, 20, menuW, 20);
+    presetMenu.setBounds(menuX, 45, menuW, 25);
+
+    subTremLabel.setBounds(menuX, menuY, menuW, labelH);
+    subTremMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
+    menuY += labelH + menuH + margin;
+
+    bassTremLabel.setBounds(menuX, menuY, menuW, labelH);
+    bassTremMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
+    menuY += labelH + menuH + margin;
+
+    midTremLabel.setBounds(menuX, menuY, menuW, labelH);
+    midTremMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
+    menuY += labelH + menuH + margin;
+
+    trebleTremLabel.setBounds(menuX, menuY, menuW, labelH);
+    trebleTremMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
 }

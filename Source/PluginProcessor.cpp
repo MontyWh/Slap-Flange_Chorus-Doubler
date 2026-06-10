@@ -8,89 +8,107 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
-
-//==============================================================================
 #include "PluginExtra.h"
 
 //==============================================================================
 AutoTremolandoAudioProcessor::AutoTremolandoAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
-     : AudioProcessor (BusesProperties()
-                     #if ! JucePlugin_IsMidiEffect
-                      #if ! JucePlugin_IsSynth
-                       .withInput  ("fInput",  juce::AudioChannelSet::stereo(), true)
-                      #endif
-                       .withOutput ("fOutput", juce::AudioChannelSet::stereo(), true)
-                     #endif
-                       ), apvts(*this /*processor*/, nullptr, "Parameters", createParameters())
+    : AudioProcessor(BusesProperties()
+#if ! JucePlugin_IsMidiEffect
+#if ! JucePlugin_IsSynth
+        .withInput("Input", juce::AudioChannelSet::stereo(), true)
+#endif
+        .withOutput("Output", juce::AudioChannelSet::stereo(), true)
+#endif
+    ), apvts(*this, nullptr, "Parameters", createParameters())
 #endif
 {
     initPresets();
 }
 
-AutoTremolandoAudioProcessor::~AutoTremolandoAudioProcessor()
-{
-}
+AutoTremolandoAudioProcessor::~AutoTremolandoAudioProcessor() {}
 
 //==============================================================================
 juce::AudioProcessorValueTreeState::ParameterLayout AutoTremolandoAudioProcessor::createParameters()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    // For now, only expose the Sine tremolo type. The ComboBox menus are
-    // intentionally kept in the UI as placeholders for a custom waveform
-    // system to be implemented later.
-    juce::StringArray tremoloOptions = { "Sine" };
+    juce::StringArray tremoloOptions = { "Sine", "Placeholder 2", "Placeholder 3", "Placeholder 4", "Placeholder 5" };
 
-    params.push_back(std::make_unique<juce::AudioParameterChoice>("SUB-BASS_WAVE_TYPE", "Sub-Bass Wave Type", tremoloOptions, 0));
-    params.push_back(std::make_unique<juce::AudioParameterChoice>("BASS_WAVE_TYPE", "Bass Wave Type", tremoloOptions, 0));
-    params.push_back(std::make_unique<juce::AudioParameterChoice>("MID_WAVE_TYPE", "Mid Wave Type", tremoloOptions, 0));
-    params.push_back(std::make_unique<juce::AudioParameterChoice>("TREBLE_WAVE_TYPE", "Treble Wave Type", tremoloOptions, 0));
+    // Tremolo type menus
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("SUB_TREMOLO", "Sub Tremolo", tremoloOptions, 0));
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("BASS_TREMOLO", "Bass Tremolo", tremoloOptions, 0));
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("MID_TREMOLO", "Mid Tremolo", tremoloOptions, 0));
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("TREBLE_TREMOLO", "Treble Tremolo", tremoloOptions, 0));
 
-    // Edits: Changed initial values from 0.0f to 1.0f or 0.5f to ensure the plugin is audible on load
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("INPUT_GAIN", "fInput Gain", 0.0f, 1.0f, 0.5f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("OUTPUT_GAIN", "fOutput Gain", 0.0f, 1.0f, 0.5f));
-	params.push_back(std::make_unique<juce::AudioParameterFloat>("WET", "Wet/Dry", 0.0f, 1.0f, 0.5f));
+    // Input/Output gain
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("INPUT_GAIN", "Input Gain", 0.0f, 1.0f, 0.5f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("OUTPUT_GAIN", "Output Gain", 0.0f, 1.0f, 0.5f));
 
-	params.push_back(std::make_unique<juce::AudioParameterFloat>("SUB-BASS_DEPTH", "Sub-Bass Depth", 0.0f, 1.0f, 1.0f));
-	params.push_back(std::make_unique<juce::AudioParameterFloat>("SUB-BASS_RATE", "Sub-Bass Rate", 1.0f, 15.0f, 5.0f));
-	params.push_back(std::make_unique<juce::AudioParameterFloat>("BASS_DEPTH", "Bass Depth", 0.0f, 1.0f, 1.0f));
-	params.push_back(std::make_unique<juce::AudioParameterFloat>("BASS_RATE", "Bass Rate", 1.0f, 15.0f, 5.0f));
-	params.push_back(std::make_unique<juce::AudioParameterFloat>("MID_DEPTH", "Mid Depth", 0.0f, 1.0f, 1.0f));
-	params.push_back(std::make_unique<juce::AudioParameterFloat>("MID_RATE", "Mid Rate", 1.0f, 15.0f, 5.0f));
-	params.push_back(std::make_unique<juce::AudioParameterFloat>("TREBLE_DEPTH", "Treble Depth", 0.0f, 1.0f, 1.0f));
-	params.push_back(std::make_unique<juce::AudioParameterFloat>("TREBLE_RATE", "Treble Rate", 1.0f, 15.0f, 5.0f));
+    // Per-band RATE
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("SUB_TREM_RATE", "Sub Rate", 1.0f, 15.0f, 5.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("BASS_TREM_RATE", "Bass Rate", 1.0f, 15.0f, 5.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("MID_TREM_RATE", "Mid Rate", 1.0f, 15.0f, 5.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("TREBLE_TREM_RATE", "Treble Rate", 1.0f, 15.0f, 5.0f));
+
+    // Per-band DEPTH
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("SUB_TREM_DEPTH", "Sub Depth", 0.0f, 1.0f, 0.5f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("BASS_TREM_DEPTH", "Bass Depth", 0.0f, 1.0f, 0.5f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("MID_TREM_DEPTH", "Mid Depth", 0.0f, 1.0f, 0.5f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("TREBLE_TREM_DEPTH", "Treble Depth", 0.0f, 1.0f, 0.5f));
+
+    // Wet & Presence
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("WET", "Wet", 0.0f, 1.0f, 1.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("PRESENCE", "Presence", 0.0f, 1.0f, 0.0f));
 
     return { params.begin(), params.end() };
 }
 
+//==============================================================================
 void AutoTremolandoAudioProcessor::initPresets()
 {
-    // Match your original APDI preset list (updated to match new parameter count)
     presets = {
-        { "Preset 1",      { 0, 0, 0, 0, 0.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 5.0f, 0.5f, 1.0f, 0.0f } },
-        { "Preset 2",   { 0, 0, 0, 0, 0.5f, 0.62f, 1.0f, 1.0f, 1.0f, 1.0f, 8.0f, 0.6f, 1.0f, 0.0f } },
-        { "Preset 3",     { 0, 0, 0, 0, 0.75f, 1.0f, 0.7f, 0.6f, 1.0f, 1.0f, 3.0f, 0.7f, 1.0f, 0.0f } }
+        { "Preset 1", {
+            0, 0, 0, 0,     // Trem types
+            0.5f, 0.5f,     // Input/Output
+            5.0f, 5.0f, 5.0f, 5.0f,   // Rates
+            0.5f, 0.5f, 0.5f, 0.5f,   // Depths
+            1.0f, 0.0f      // Wet, Presence
+        }},
+        { "Preset 2", {
+            0, 0, 0, 0,
+            0.5f, 0.62f,
+            8.0f, 6.0f, 4.0f, 2.0f,
+            0.7f, 0.6f, 0.5f, 0.4f,
+            1.0f, 0.0f
+        }},
+        { "Preset 3", {
+            0, 0, 0, 0,
+            0.75f, 1.0f,
+            3.0f, 5.0f, 7.0f, 9.0f,
+            0.7f, 0.6f, 0.5f, 0.4f,
+            1.0f, 0.0f
+        }}
     };
 }
 
 void AutoTremolandoAudioProcessor::loadPreset(int index)
 {
     if (index < 0 || index >= presets.size()) return;
+
     auto& preset = presets[index];
 
-    // The order here must match the order in createParameters()
-    // It's safer to loop through parameters by ID if you have many
     const char* paramIDs[] = {
-        "SUB-BASS_WAVE_TYPE", "BASS_WAVE_TYPE", "MID_WAVE_TYPE", "TREBLE_WAVE_TYPE",
-        "INPUT_GAIN", "OUTPUT_GAIN", "SUB-BASS_DEPTH", "SUB-BASS_RATE", "BASS_DEPTH", "BASS_RATE", "MID_DEPTH", "MID_RATE", "TREBLE_DEPTH", "TREBLE_RATE"
+        "SUB_TREMOLO", "BASS_TREMOLO", "MID_TREMOLO", "TREBLE_TREMOLO",
+        "INPUT_GAIN", "OUTPUT_GAIN",
+        "SUB_TREM_RATE", "BASS_TREM_RATE", "MID_TREM_RATE", "TREBLE_TREM_RATE",
+        "SUB_TREM_DEPTH", "BASS_TREM_DEPTH", "MID_TREM_DEPTH", "TREBLE_TREM_DEPTH",
+        "WET", "PRESENCE"
     };
 
-    for (int i = 0; i < preset.values.size(); ++i)
-    {
+    for (int i = 0; i < (int)preset.values.size(); ++i)
         if (auto* param = apvts.getParameter(paramIDs[i]))
             param->setValueNotifyingHost(param->convertTo0to1(preset.values[i]));
-    }
 }
 
 //==============================================================================
@@ -101,29 +119,29 @@ const juce::String AutoTremolandoAudioProcessor::getName() const
 
 bool AutoTremolandoAudioProcessor::acceptsMidi() const
 {
-   #if JucePlugin_WantsMidiInput
+#if JucePlugin_WantsMidiInput
     return true;
-   #else
+#else
     return false;
-   #endif
+#endif
 }
 
 bool AutoTremolandoAudioProcessor::producesMidi() const
 {
-   #if JucePlugin_ProducesMidiOutput
+#if JucePlugin_ProducesMidiOutput
     return true;
-   #else
+#else
     return false;
-   #endif
+#endif
 }
 
 bool AutoTremolandoAudioProcessor::isMidiEffect() const
 {
-   #if JucePlugin_IsMidiEffect
+#if JucePlugin_IsMidiEffect
     return true;
-   #else
+#else
     return false;
-   #endif
+#endif
 }
 
 double AutoTremolandoAudioProcessor::getTailLengthSeconds() const
@@ -133,8 +151,7 @@ double AutoTremolandoAudioProcessor::getTailLengthSeconds() const
 
 int AutoTremolandoAudioProcessor::getNumPrograms()
 {
-    return 1;   // NB: some hosts don't cope very well if you tell them there are 0 programs,
-                // so this should be at least 1, even if you're not really implementing programs.
+    return 1;
 }
 
 int AutoTremolandoAudioProcessor::getCurrentProgram()
@@ -142,165 +159,116 @@ int AutoTremolandoAudioProcessor::getCurrentProgram()
     return 0;
 }
 
-void AutoTremolandoAudioProcessor::setCurrentProgram (int index)
+void AutoTremolandoAudioProcessor::setCurrentProgram(int index)
 {
 }
 
-const juce::String AutoTremolandoAudioProcessor::getProgramName (int index)
+const juce::String AutoTremolandoAudioProcessor::getProgramName(int index)
 {
     return {};
 }
 
-void AutoTremolandoAudioProcessor::changeProgramName (int index, const juce::String& newName)
+void AutoTremolandoAudioProcessor::changeProgramName(int index, const juce::String& newName)
 {
 }
 
 //==============================================================================
-void AutoTremolandoAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void AutoTremolandoAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need...
-
     int numChannels = getTotalNumInputChannels();
     fSampleRate = static_cast<float>(sampleRate);
 
     juce::dsp::ProcessSpec spec;
     spec.sampleRate = sampleRate;
     spec.maximumBlockSize = samplesPerBlock;
-    spec.numChannels = 1; // Each individual filter in the array is mono
+    spec.numChannels = 1;
 
-    // Clear and re-fill the arrays based on channel count
     subBass.clear();
     bassLower.clear();
-	bassUpper.clear();
-	midLower.clear();
+    bassUpper.clear();
+    midLower.clear();
     midUpper.clear();
-	treble.clear();
-	resonanceFilter.clear();
+    treble.clear();
+    resonanceFilter.clear();
 
     for (int i = 0; i < numChannels; ++i)
     {
-        subBass.add(new Filter());
-        subBass[i]->prepare(spec);
-
-        bassLower.add(new Filter());
-        bassLower[i]->prepare(spec);
-
-        bassUpper.add(new Filter());
-        bassUpper[i]->prepare(spec);
-
-        midLower.add(new Filter());
-        midLower[i]->prepare(spec);
-
-        midUpper.add(new Filter());
-        midUpper[i]->prepare(spec);
-
-        treble.add(new Filter());
-        treble[i]->prepare(spec);
-
-        resonanceFilter.add(new Filter());
-        resonanceFilter[i]->prepare(spec);
+        subBass.add(new Filter());      subBass[i]->prepare(spec);
+        bassLower.add(new Filter());    bassLower[i]->prepare(spec);
+        bassUpper.add(new Filter());    bassUpper[i]->prepare(spec);
+        midLower.add(new Filter());     midLower[i]->prepare(spec);
+        midUpper.add(new Filter());     midUpper[i]->prepare(spec);
+        treble.add(new Filter());       treble[i]->prepare(spec);
+        resonanceFilter.add(new Filter()); resonanceFilter[i]->prepare(spec);
     }
+
+    for (int b = 0; b < 4; ++b)
+        fPhasePos[b] = 0.0f;
 }
 
 void AutoTremolandoAudioProcessor::releaseResources()
 {
-    // When playback stops, you can use this as an opportunity to free up any
-    // spare memory, etc.
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
-bool AutoTremolandoAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool AutoTremolandoAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 {
-  #if JucePlugin_IsMidiEffect
-    juce::ignoreUnused (layouts);
+#if JucePlugin_IsMidiEffect
+    juce::ignoreUnused(layouts);
     return true;
-  #else
-    // This is the place where you check if the layout is supported.
-    // In this template code we only support mono or stereo.
-    // Some plugin hosts, such as certain GarageBand versions, will only
-    // load plugins that support stereo bus layouts.
+#else
     if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
-     && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+        && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
         return false;
 
-    // This checks if the fInput layout matches the fOutput layout
-   #if ! JucePlugin_IsSynth
+#if ! JucePlugin_IsSynth
     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
         return false;
-   #endif
+#endif
 
     return true;
-  #endif
+#endif
 }
 #endif
 
 //==============================================================================
-// Tremolo waveform generators
-float AutoTremolandoAudioProcessor::setTremoloShape(float phase, int type, float depth)
+// Tremolo waveform generator
+static float getTremoloSample(float phase, int /*type*/, float depth)
 {
-    // Always use a sine oscillator for now. The `type` parameter is kept
-    // for future waveform system but is ignored here so the output is
-    // consistently a sine-based tremolo.
     float osc = std::sin(phase);
-    return (osc * depth * 0.5f) + 0.5f; // Convert to 0-1 range
+    return (osc * depth * 0.5f) + 0.5f;
 }
 
-void AutoTremolandoAudioProcessor::processFilters(float* depths, int channel, float fDry, float& fWet, float* fPhases, int* iTremTypes)
-{
-    // Multiband splitting logic with per-band tremolo
-    float fBand[4];
-    float fTremolo[4];
-
-    // Calculate the distinct LFO modulator value for each band using its unique phase position and depth
-    for (int i = 0; i < 4; ++i)
-    {
-        fTremolo[i] = setTremoloShape(fPhases[i], iTremTypes[i], depths[i]);
-    }
-
-    fBand[0] = subBass[channel]->processSample(fWet * fTremolo[0]);
-    fBand[1] = (bassUpper[channel]->processSample(fWet * fTremolo[1]) + bassLower[channel]->processSample(fDry * fTremolo[1]));
-    fBand[2] = (midUpper[channel]->processSample(fWet * fTremolo[2]) + midLower[channel]->processSample(fDry * fTremolo[2]));
-    fBand[3] = treble[channel]->processSample(fWet * fTremolo[3]);
-
-    // Summing the processed bands back together
-    fWet = 0.0f;
-    for (int j = 0; j < 4; ++j)
-        fWet += fBand[j];
-}
-
-void AutoTremolandoAudioProcessor::additionalProcess(float* depths, float fMixDrop, int channel, float& fWet, float fDry, float* fPhases, int* iTremTypes)
-{
-    resonanceFilter[channel]->processSample(fDry);
-    fDry *= fMixDrop;
-    processFilters(depths, channel, fDry, fWet, fPhases, iTremTypes);
-}
-
+//==============================================================================
 void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels = getTotalNumInputChannels();
+    auto numSamples = buffer.getNumSamples();
 
-    // Fetch values using local variables to avoid multiple pointer dereferences in the loop
     float fInGain = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
     float fOutGain = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
     float fWetDryControl = std::pow(*apvts.getRawParameterValue("WET"), 3.0f);
+    float fPresence = *apvts.getRawParameterValue("PRESENCE");
 
-    float fRate[4] = {
-        std::pow(*apvts.getRawParameterValue("SUB-BASS_RATE"), 3.0f),
-        std::pow(*apvts.getRawParameterValue("BASS_RATE"), 3.0f),
-        std::pow(*apvts.getRawParameterValue("MID_RATE"), 3.0f),
-        std::pow(*apvts.getRawParameterValue("TREBLE_RATE"), 3.0f)
-    };
-    float fDepth[4] = {
-        std::pow(*apvts.getRawParameterValue("SUB-BASS_DEPTH"), 3.0f),
-        std::pow(*apvts.getRawParameterValue("BASS_DEPTH"), 3.0f),
-        std::pow(*apvts.getRawParameterValue("MID_DEPTH"), 3.0f),
-        std::pow(*apvts.getRawParameterValue("TREBLE_DEPTH"), 3.0f)
+    int iTremTypes[4] = {
+        *apvts.getRawParameterValue("SUB_TREMOLO"),
+        *apvts.getRawParameterValue("BASS_TREMOLO"),
+        *apvts.getRawParameterValue("MID_TREMOLO"),
+        *apvts.getRawParameterValue("TREBLE_TREMOLO")
     };
 
-    // Update Filter Coefficients
-    float presenceFreq = 5000.0f; // Temporary fallback to prevent crashing on the missing 'PRESENCE' parameter
+    fRate[0] = *apvts.getRawParameterValue("SUB_TREM_RATE");
+    fRate[1] = *apvts.getRawParameterValue("BASS_TREM_RATE");
+    fRate[2] = *apvts.getRawParameterValue("MID_TREM_RATE");
+    fRate[3] = *apvts.getRawParameterValue("TREBLE_TREM_RATE");
+
+    fDepth[0] = *apvts.getRawParameterValue("SUB_TREM_DEPTH");
+    fDepth[1] = *apvts.getRawParameterValue("BASS_TREM_DEPTH");
+    fDepth[2] = *apvts.getRawParameterValue("MID_TREM_DEPTH");
+    fDepth[3] = *apvts.getRawParameterValue("TREBLE_TREM_DEPTH");
+
+    float presenceFreq = fPresence * 19000.0f + 1000.0f;
     auto resonanceCoeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, presenceFreq, 1.41f, 1.41f);
 
     auto subCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 60.0f);
@@ -321,47 +289,45 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
         treble[i]->coefficients = trebCoeffs;
     }
 
-    float fMixDrop = 1.0f - 0.41f;
+    const float fTwoPI = static_cast<float>(2.0f * M_PI);
 
-    // Fetch tremolo types (Safely static casted to int for your array checks)
-    int iTremTypes[4] = {
-        static_cast<int>(*apvts.getRawParameterValue("SUB-BASS_WAVE_TYPE")),
-        static_cast<int>(*apvts.getRawParameterValue("BASS_WAVE_TYPE")),
-        static_cast<int>(*apvts.getRawParameterValue("MID_WAVE_TYPE")),
-        static_cast<int>(*apvts.getRawParameterValue("TREBLE_WAVE_TYPE"))
-    };
-
-    constexpr float fTwoPI = static_cast<float> (2.0f * M_PI);
     float fPhaseInc[4];
-    for (int i = 0; i < 4; i++) fPhaseInc[i] = (fTwoPI * fRate[i]) / fSampleRate; // small steps
+    for (int b = 0; b < 4; ++b)
+        fPhaseInc[b] = (fTwoPI * fRate[b]) / fSampleRate;
 
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer(channel);
 
-        for (int iSample = 0; iSample < buffer.getNumSamples(); ++iSample)
+        for (int iSample = 0; iSample < numSamples; ++iSample)
         {
             float fInput = channelData[iSample];
-
-            // 1. Pre-Output-Gain
             float fDry = fInput * fInGain;
-            float fWet = fDry;
 
-            // Increment LFO phases outside the band loop, only once per sample frame
-            if (channel == 0)
+            float fWet = resonanceFilter[channel]->processSample(fDry) * (1.0f - 0.41f);
+
+            float fBand[4];
+
+            fBand[0] = subBass[channel]->processSample(fWet);
+            fBand[1] = bassUpper[channel]->processSample(fWet)
+                + bassLower[channel]->processSample(fDry);
+            fBand[2] = midUpper[channel]->processSample(fWet)
+                + midLower[channel]->processSample(fDry);
+            fBand[3] = treble[channel]->processSample(fWet);
+
+            for (int b = 0; b < 4; ++b)
             {
-                for (int i = 0; i < 4; i++)
-                {
-                    fPhasePos[i] += fPhaseInc[i]; // Move our oscillator forward
-                    if (fPhasePos[i] > fTwoPI) fPhasePos[i] -= fTwoPI; // Wrap around safely
-                }
+                fPhasePos[b] += fPhaseInc[b];
+                if (fPhasePos[b] > fTwoPI)
+                    fPhasePos[b] -= fTwoPI;
+
+                float trem = getTremoloSample(fPhasePos[b], iTremTypes[b], fDepth[b]);
+                fBand[b] *= trem;
             }
 
-            // 2 & 3. Process multiband filters passing down the complete rate/depth arrays
-            additionalProcess(fDepth, fMixDrop, channel, fWet, fDry, fPhasePos, iTremTypes);
+            float fSummedBands = fBand[0] + fBand[1] + fBand[2] + fBand[3];
 
-            // 4. Wet/Dry crossfade and Output Gain
-            float fOutput = (fWet * fWetDryControl) + (fDry * (1.0f - fWetDryControl));
+            float fOutput = (fSummedBands * fWetDryControl) + (fDry * (1.0f - fWetDryControl));
             channelData[iSample] = fOutput * fOutGain;
         }
     }
@@ -370,31 +336,24 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
 //==============================================================================
 bool AutoTremolandoAudioProcessor::hasEditor() const
 {
-    return true; // (change this to false if you choose to not supply an editor)
+    return true;
 }
 
 juce::AudioProcessorEditor* AutoTremolandoAudioProcessor::createEditor()
 {
-    return new AutoTremolandoAudioProcessorEditor (*this);
+    return new AutoTremolandoAudioProcessorEditor(*this);
 }
 
 //==============================================================================
-void AutoTremolandoAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+void AutoTremolandoAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
-
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, destData);
 }
 
-void AutoTremolandoAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void AutoTremolandoAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
-
     std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
     if (xmlState != nullptr)
         if (xmlState->hasTagName(apvts.state.getType()))
@@ -402,8 +361,8 @@ void AutoTremolandoAudioProcessor::setStateInformation (const void* data, int si
 }
 
 //==============================================================================
-// This creates new instances of the plugin..
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new AutoTremolandoAudioProcessor();
 }
+
