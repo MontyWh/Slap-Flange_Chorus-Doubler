@@ -56,10 +56,13 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
     //======================================================================
     // Tremolo type menus
     //======================================================================
-    subTremMenu.addItemList({ "Sine", "Placeholder 2", "Placeholder 3", "Placeholder 4", "Placeholder 5" }, 1);
-    bassTremMenu.addItemList({ "Sine", "Placeholder 2", "Placeholder 3", "Placeholder 4", "Placeholder 5" }, 1);
-    midTremMenu.addItemList({ "Sine", "Placeholder 2", "Placeholder 3", "Placeholder 4", "Placeholder 5" }, 1);
-    trebleTremMenu.addItemList({ "Sine", "Placeholder 2", "Placeholder 3", "Placeholder 4", "Placeholder 5" }, 1);
+    juce::ComboBox* menus[4] =
+    {
+        &subTremMenu, &bassTremMenu, &midTremMenu, &trebleTremMenu
+    };
+    const juce::StringArray waveNames{ "Sine", "Triangle", "Sawtooth", "Pulse", "Square" };
+    for (auto* m : menus) m->addItemList(waveNames, 1);
+
 
     addAndMakeVisible(subTremMenu);
     addAndMakeVisible(bassTremMenu);

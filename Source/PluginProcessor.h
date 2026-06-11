@@ -9,6 +9,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "PluginExtra.h"
 
 //==============================================================================
 class AutoTremolandoAudioProcessor : public juce::AudioProcessor
@@ -17,7 +18,6 @@ public:
     AutoTremolandoAudioProcessor();
     ~AutoTremolandoAudioProcessor() override;
 
-    //==============================================================================
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
 
@@ -27,11 +27,9 @@ public:
 
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
-    //==============================================================================
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override;
 
-    //==============================================================================
     const juce::String getName() const override;
 
     bool acceptsMidi() const override;
@@ -39,14 +37,12 @@ public:
     bool isMidiEffect() const override;
     double getTailLengthSeconds() const override;
 
-    //==============================================================================
     int getNumPrograms() override;
     int getCurrentProgram() override;
     void setCurrentProgram(int index) override;
     const juce::String getProgramName(int index) override;
     void changeProgramName(int index, const juce::String& newName) override;
 
-    //==============================================================================
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
@@ -66,15 +62,12 @@ private:
     void initPresets();
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
 
-    //==============================================================================
     float fSampleRate = 44100.0f;
 
-    // Per-band phase accumulators
-    float fPhasePos[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-
-    // Per-band RATE and DEPTH
     float fRate[4] = { 5.0f, 5.0f, 5.0f, 5.0f };
     float fDepth[4] = { 0.5f, 0.5f, 0.5f, 0.5f };
+
+    TremoloProcess tremolo;
 
     using Filter = juce::dsp::IIR::Filter<float>;
     using MultiChannelFilter = juce::OwnedArray<Filter>;
@@ -83,4 +76,3 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AutoTremolandoAudioProcessor)
 };
-
