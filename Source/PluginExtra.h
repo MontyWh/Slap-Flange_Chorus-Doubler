@@ -10,105 +10,113 @@
 #include <corecrt_math_defines.h>
 #include <iostream>
 #include <algorithm>
+#include <array>
+#include <vector>
 
 class TremoloProcess
 {
 public:
-    TremoloProcess()
-    {
-        for (int b = 0; b < 4; ++b)
-        {
-            fPhasePos[b] = 0.0f;
-            fPhaseInc[b] = 0.0f;
-        }
-    }
-
-    // Reset phase positions (called in prepareToPlay)
-    void reset()
-    {
-        for (int b = 0; b < 4; ++b)
-            fPhasePos[b] = 0.0f;
-    }
-
-    // Compute phase increments for this block
-    void computePhaseIncrements(float fRate[4], float fSampleRate)
-    {
-        const float fTwoPI = static_cast<float>(2.0f * M_PI);
-
-        for (int b = 0; b < 4; ++b)
-            fPhaseInc[b] = (fTwoPI * fRate[b]) / fSampleRate;
-    }
-
-    void sineProcess(int b, const float twoPI, float& osc)
-    {
-        if (fPhasePos[b] > twoPI)
-            fPhasePos[b] -= twoPI;
-
-        osc = std::sin(fPhasePos[b]);
-    }
-
-    void triangleProcess(int b, const float twoPI, float& osc)
-    {
-        if (0 <= fPhasePos[b] && fPhasePos[b] < M_PI)
-            osc = -1.0f + (2.0f / M_PI) * fPhasePos[b];
-        else if (M_PI <= fPhasePos[b] && fPhasePos[b] < 2 * M_PI)
-            osc = 3.0f - (2.0f / M_PI) * fPhasePos[b];
-    }
-
-    void sawtoothProcess(int b, const float twoPI, float& osc)
-    {
-        if (fPhasePos[b] > twoPI)
-            fPhasePos[b] -= twoPI;
-
-        osc = (fPhasePos[b] / M_PI) - 1.0f;
-    }
-
-    void pulseProcess(int b, const float fTwoPI, float& osc)
-    {
-        if (fPhasePos[b] > fTwoPI)
-            fPhasePos[b] -= fTwoPI;
-
-        const float p = fPhasePos[b];
-
-		const float pulseWidth = 0.5f; // 50% duty cycle
-
-        osc = (p < pulseWidth * fTwoPI) ? 1.0f : -1.0f;
-    }
-
-
-	void squareProcess(int b, const float fTwoPI, float& osc)
+	TremoloProcess()
 	{
-        osc = (fPhasePos[b] < M_PI) ? 1.0f : -1.0f;
+		for (int b = 0; b < 4; ++b)
+			fPhaseInc[b] = 0.0f;
 	}
 
-    // Apply tremolo to each band
-    void processBands(float band[4], float depth[4], int choice[4])
-    {
-        const float fTwoPI = static_cast<float>(2.0f * M_PI);
+	// Reset phase positions (called in prepareToPlay)
+	void reset(int numChannels)
+	{
+		fPhasePos.assign(numChannels, { 0.0f, 0.0f, 0.0f, 0.0f });
+	}
 
-        for (int b = 0; b < 4; ++b)
-        {
-            fPhasePos[b] += fPhaseInc[b];
-            float osc;
-            if (choice[b] == 0)
-                sineProcess(b, fTwoPI, osc);
-            else if (choice[b] == 1)
-                triangleProcess(b, fTwoPI, osc);
-            else if (choice[b] == 2)
-                sawtoothProcess(b, fTwoPI, osc);
-            else if (choice[b] == 3)
-                pulseProcess(b, fTwoPI, osc);
-            else if (choice[b] == 4)
-                squareProcess(b, fTwoPI, osc);
+	// Compute phase increments for this block
+	void computePhaseIncrements(float fRate[4], float fSampleRate)
+	{
+		const float fTwoPI = static_cast<float>(2.0f * M_PI);
+
+		for (int b = 0; b < 4; ++b)
+			fPhaseInc[b] = (fTwoPI * fRate[b]) / fSampleRate;
+	}
+
+	// Compute phase increments for this channel
+	void computeChannelPhaseIncrements(float fRate[4], float fSampleRate)
+	{
+		computePhaseIncrements(fRate, fSampleRate);
+	}
+
+	void sineProcess(const float fPhase, float& osc)
+	{
+		osc = std::sin(fPhase);
+	}
+
+	void triangleProcess(const float fPhase, float& osc)
+	{
+		if (0 <= fPhase && fPhase < M_PI)
+			osc = -1.0f + (2.0f / M_PI) * fPhase;
+		else if (M_PI <= fPhase && fPhase < 2 * M_PI)
+			osc = 3.0f - (2.0f / M_PI) * fPhase;
+	}
+
+	void sawtoothProcess(const float fPhase, float& osc)
+	{
+		osc = (fPhase / M_PI) - 1.0f;
+	}
+
+	void pulseProcess(const float fPhase, const float fTwoPI, float fPulseWidth, float& osc)
+	{
+		const float p = fPhase;
+
+		osc = (p < fPulseWidth * fTwoPI) ? 1.0f : -1.0f;
+	}
 
 
-            float trem = (osc * depth[b] * 0.5f) + 0.5f;
+	void squareProcess(const float fPhase, const float fTwoPI, float& osc)
+	{
+		juce::ignoreUnused(fTwoPI);
+		osc = (fPhase < M_PI) ? 1.0f : -1.0f;
+	}
 
-            band[b] *= trem;
-        }
-    }
+	// Apply tremolo to each band
+	void processBands(int channel, float band[4], float depth[4], int choice[4], float fOffset, float fPulseWidth)
+	{
+		const float fTwoPI = static_cast<float>(2.0f * M_PI);
+
+		for (int b = 0; b < 4; ++b)
+		{
+			fPhasePos[channel][b] += fPhaseInc[b];
+			if (fPhasePos[channel][b] > fTwoPI)
+				fPhasePos[channel][b] -= fTwoPI;
+
+			float fPhase = fPhasePos[channel][b] + fOffset;
+			while (fPhase > fTwoPI)
+				fPhase -= fTwoPI;
+
+			float osc = 0.0f;
+			if (choice[b] == 0)
+				sineProcess(fPhase, osc);
+			else if (choice[b] == 1)
+				triangleProcess(fPhase, osc);
+			else if (choice[b] == 2)
+				sawtoothProcess(fPhase, osc);
+			else if (choice[b] == 3)
+				pulseProcess(fPhase, fTwoPI, fPulseWidth, osc);
+			else if (choice[b] == 4)
+				squareProcess(fPhase, fTwoPI, osc);
+
+
+			float trem = (osc * depth[b] * 0.5f) + 0.5f;
+
+			band[b] *= trem;
+		}
+	}
+
+	// Apply tremolo to this channel using effective values
+	void processChannelBands(int channel, float band[4], float depth[4], int choice[4], float fRate[4], float fSampleRate, float fOffset, float fPulseWidth)
+	{
+		computeChannelPhaseIncrements(fRate, fSampleRate);
+		processBands(channel, band, depth, choice, fOffset, fPulseWidth);
+	}
 
 private:
-    float fPhasePos[4];
-    float fPhaseInc[4];
+	std::vector<std::array<float, 4>> fPhasePos;
+	float fPhaseInc[4];
 };

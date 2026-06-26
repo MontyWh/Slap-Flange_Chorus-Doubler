@@ -67,6 +67,9 @@ private:
     float fRate[4] = { 5.0f, 5.0f, 5.0f, 5.0f };
     float fDepth[4] = { 0.5f, 0.5f, 0.5f, 0.5f };
 
+    // Per-channel phase offset (sized in prepareToPlay)
+    std::vector<float> fPhaseOffset;
+
     TremoloProcess tremolo;
 
     using Filter = juce::dsp::IIR::Filter<float>;

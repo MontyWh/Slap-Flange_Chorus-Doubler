@@ -57,9 +57,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout AutoTremolandoAudioProcessor
     params.push_back(std::make_unique<juce::AudioParameterFloat>("MID_TREM_DEPTH", "Mid Depth", 0.0f, 1.0f, 0.5f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("TREBLE_TREM_DEPTH", "Treble Depth", 0.0f, 1.0f, 0.5f));
 
-    // Wet & Presence
+    // Wet, Presence, Offsets & Pulse Width
     params.push_back(std::make_unique<juce::AudioParameterFloat>("WET", "Wet", 0.0f, 1.0f, 1.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("PRESENCE", "Presence", 0.0f, 1.0f, 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("PHASE_OFFSET", "Phase Offset", 0.0f, 180.0f, 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("RATE_OFFSET", "Rate Offset", -7.0f, 7.0f, 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("DEPTH_OFFSET", "Depth Offset", -1.0f, 1.0f, 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("PULSE_WIDTH", "Pulse Width", 0.05f, 0.95f, 0.5f));
 
     return { params.begin(), params.end() };
 }
@@ -73,21 +77,21 @@ void AutoTremolandoAudioProcessor::initPresets()
         0.5f, 0.5f,          // Input / Output
         5.0f, 5.0f, 5.0f, 5.0f,   // Rates
         0.5f, 0.5f, 0.5f, 0.5f,   // Depths
-        0.5f, 0.5f           // Wet, Presence
+        0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.5f     // Wet, Presence, Phase, Rate, Depth, Pulse Width
     }},
     { "Preset 2",{
         0, 0, 0, 0,          // Trem types
         0.5f, 0.5f,          // Input / Output
         5.0f, 5.0f, 5.0f, 5.0f,   // Rates
         0.5f, 0.5f, 0.5f, 0.5f,   // Depths
-        0.5f, 0.5f           // Wet, Presence
+        0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.5f     // Wet, Presence, Phase, Rate, Depth, Pulse Width
     }},
     { "Preset 3", {
         0, 0, 0, 0,          // Trem types
         0.5f, 0.5f,          // Input / Output
         5.0f, 5.0f, 5.0f, 5.0f,   // Rates
         0.5f, 0.5f, 0.5f, 0.5f,   // Depths
-        0.5f, 0.5f           // Wet, Presence
+        0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.5f     // Wet, Presence, Phase, Rate, Depth, Pulse Width
     }}
     };
 
@@ -104,7 +108,7 @@ void AutoTremolandoAudioProcessor::loadPreset(int index)
         "INPUT_GAIN", "OUTPUT_GAIN",
         "SUB_TREM_RATE", "BASS_TREM_RATE", "MID_TREM_RATE", "TREBLE_TREM_RATE",
         "SUB_TREM_DEPTH", "BASS_TREM_DEPTH", "MID_TREM_DEPTH", "TREBLE_TREM_DEPTH",
-        "WET", "PRESENCE"
+        "WET", "PRESENCE", "PHASE_OFFSET", "RATE_OFFSET", "DEPTH_OFFSET", "PULSE_WIDTH"
     };
 
     for (int i = 0; i < (int)preset.values.size(); ++i)
@@ -177,6 +181,7 @@ void AutoTremolandoAudioProcessor::changeProgramName(int index, const juce::Stri
 void AutoTremolandoAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     int numChannels = getTotalNumInputChannels();
+    int numOutputChannels = getTotalNumOutputChannels();
     fSampleRate = static_cast<float>(sampleRate);
 
     juce::dsp::ProcessSpec spec;
@@ -203,7 +208,8 @@ void AutoTremolandoAudioProcessor::prepareToPlay(double sampleRate, int samplesP
         resonanceFilter.add(new Filter()); resonanceFilter[i]->prepare(spec);
     }
 
-    tremolo.reset();
+    fPhaseOffset.assign(numOutputChannels, 0.0f);
+    tremolo.reset(numChannels);
 }
 
 void AutoTremolandoAudioProcessor::releaseResources()
@@ -217,12 +223,13 @@ bool AutoTremolandoAudioProcessor::isBusesLayoutSupported(const BusesLayout& lay
     juce::ignoreUnused(layouts);
     return true;
 #else
-    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
-        && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+    const auto mainOutput = layouts.getMainOutputChannelSet();
+
+    if (mainOutput.isDisabled())
         return false;
 
 #if ! JucePlugin_IsSynth
-    if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
+    if (mainOutput != layouts.getMainInputChannelSet())
         return false;
 #endif
 
@@ -253,6 +260,28 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
     fDepth[2] = *apvts.getRawParameterValue("MID_TREM_DEPTH");
     fDepth[3] = *apvts.getRawParameterValue("TREBLE_TREM_DEPTH");
 
+    float fPhaseOffsetDegrees = *apvts.getRawParameterValue("PHASE_OFFSET");
+    float fPhaseOffsetRadians = juce::degreesToRadians(fPhaseOffsetDegrees);
+    float fRateOffset = *apvts.getRawParameterValue("RATE_OFFSET");
+    float fDepthOffset = *apvts.getRawParameterValue("DEPTH_OFFSET");
+    float fPulseWidth = *apvts.getRawParameterValue("PULSE_WIDTH");
+
+    if (totalNumInputChannels <= 1)
+    {
+        if (!fPhaseOffset.empty())
+            fPhaseOffset[0] = 0.0f;
+    }
+    else if (totalNumInputChannels == 2)
+    {
+        fPhaseOffset[0] = 0.0f;
+        fPhaseOffset[1] = fPhaseOffsetRadians;
+    }
+    else
+    {
+        for (int channel = 0; channel < totalNumInputChannels; ++channel)
+            fPhaseOffset[channel] = fPhaseOffsetRadians * ((float)channel / (float)(totalNumInputChannels - 1));
+    }
+
     float presenceFreq = fPresence * 19000.0f + 1000.0f;
     auto resonanceCoeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, presenceFreq, 1.41f, 1.41f);
 
@@ -274,10 +303,20 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
         treble[i]->coefficients = trebCoeffs;
     }
 
-    tremolo.computePhaseIncrements(fRate, fSampleRate);
-
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
+        float fChannelScale = 0.0f;
+        if (totalNumInputChannels > 1)
+            fChannelScale = (float)channel / (float)(totalNumInputChannels - 1);
+
+        float fChannelRate[4];
+        float fChannelDepth[4];
+        for (int b = 0; b < 4; ++b)
+        {
+            fChannelRate[b] = juce::jlimit(1.0f, 15.0f, fRate[b] + (fRateOffset * fChannelScale));
+            fChannelDepth[b] = juce::jlimit(0.0f, 1.0f, fDepth[b] + (fDepthOffset * fChannelScale));
+        }
+
         auto* channelData = buffer.getWritePointer(channel);
 
         for (int iSample = 0; iSample < numSamples; ++iSample)
@@ -301,7 +340,7 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                 + midLower[channel]->processSample(fDry);
             fBand[3] = treble[channel]->processSample(fWet);
 
-            tremolo.processBands(fBand, fDepth, iChoice);
+            tremolo.processChannelBands(channel, fBand, fChannelDepth, iChoice, fChannelRate, fSampleRate, fPhaseOffset[channel], fPulseWidth);
 
             float fSummedBands = fBand[0] + fBand[1] + fBand[2] + fBand[3];
 

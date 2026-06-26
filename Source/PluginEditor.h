@@ -12,9 +12,9 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
-// 16 parameters total (menus + gains + per-band rate/depth + wet/presence)
+// 20 parameters total (menus + gains + per-band rate/depth + wet/presence + offsets + pulse width)
 //==============================================================================
-const int NUM_OF_PARAMETERS = 16;
+const int NUM_OF_PARAMETERS = 20;
 
 //==============================================================================
 class AutoTremolandoAudioProcessorEditor : public juce::AudioProcessorEditor
@@ -27,7 +27,7 @@ public:
     void resized() override;
 
 private:
-    // Sliders for all 16 parameters
+    // Sliders for all 20 parameters
     juce::Slider parameters[NUM_OF_PARAMETERS];
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> paramAttach[NUM_OF_PARAMETERS];
     juce::Label labels[NUM_OF_PARAMETERS];

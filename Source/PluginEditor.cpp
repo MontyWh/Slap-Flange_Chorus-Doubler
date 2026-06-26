@@ -14,7 +14,7 @@ static void setupSlider(juce::Slider& s)
 AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremolandoAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
-    setSize(900, 600);
+    setSize(1000, 600);
 
     //======================================================================
     // Parameter IDs in the exact order used by the processor
@@ -25,7 +25,7 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
         "INPUT_GAIN", "OUTPUT_GAIN",
         "SUB_TREM_RATE", "BASS_TREM_RATE", "MID_TREM_RATE", "TREBLE_TREM_RATE",
         "SUB_TREM_DEPTH", "BASS_TREM_DEPTH", "MID_TREM_DEPTH", "TREBLE_TREM_DEPTH",
-        "WET", "PRESENCE"
+        "WET", "PRESENCE", "PHASE_OFFSET", "RATE_OFFSET", "DEPTH_OFFSET", "PULSE_WIDTH"
     };
 
     const juce::String paramLabels[NUM_OF_PARAMETERS] =
@@ -34,7 +34,7 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
         "Input", "Output",
         "Sub Rate", "Bass Rate", "Mid Rate", "Treble Rate",
         "Sub Depth", "Bass Depth", "Mid Depth", "Treble Depth",
-        "Wet", "Presence"
+        "Wet", "Presence", "Offset", "Rate Offset", "Depth Offset", "Pulse Width"
     };
 
     //======================================================================
@@ -106,6 +106,20 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
             int index = presetMenu.getSelectedId() - 1;
             audioProcessor.loadPreset(index);
         };
+
+    //======================================================================
+    // Disable channel spread controls in mono
+    //======================================================================
+    bool bEnableChannelSpread = audioProcessor.getTotalNumOutputChannels() > 1;
+    float fChannelSpreadAlpha = bEnableChannelSpread ? 1.0f : 0.5f;
+
+    for (int i = 16; i <= 18; ++i)
+    {
+        parameters[i].setEnabled(bEnableChannelSpread);
+        labels[i].setEnabled(bEnableChannelSpread);
+        parameters[i].setAlpha(fChannelSpreadAlpha);
+        labels[i].setAlpha(fChannelSpreadAlpha);
+    }
 }
 
 //==============================================================================
@@ -151,6 +165,14 @@ void AutoTremolandoAudioProcessorEditor::resized()
 
     parameters[7].setBounds(x, y, sliderW, sliderH);   // Bass Rate
     labels[7].setBounds(x, y + sliderH, sliderW, labelH);
+    x += sliderW + margin;
+
+    parameters[16].setBounds(x, y, sliderW, sliderH);  // Offset
+    labels[16].setBounds(x, y + sliderH, sliderW, labelH);
+    x += sliderW + margin;
+
+    parameters[19].setBounds(x, y, sliderW, sliderH);  // Pulse Width
+    labels[19].setBounds(x, y + sliderH, sliderW, labelH);
 
     // Row 2
     x = margin;
@@ -164,16 +186,20 @@ void AutoTremolandoAudioProcessorEditor::resized()
     labels[9].setBounds(x, y + sliderH, sliderW, labelH);
     x += sliderW + margin;
 
-    parameters[10].setBounds(x, y, sliderW, sliderH);  // Sub Depth
-    labels[10].setBounds(x, y + sliderH, sliderW, labelH);
+    parameters[17].setBounds(x, y, sliderW, sliderH);  // Rate Offset
+    labels[17].setBounds(x, y + sliderH, sliderW, labelH);
     x += sliderW + margin;
 
-    parameters[11].setBounds(x, y, sliderW, sliderH);  // Bass Depth
-    labels[11].setBounds(x, y + sliderH, sliderW, labelH);
+    parameters[10].setBounds(x, y, sliderW, sliderH);  // Sub Depth
+    labels[10].setBounds(x, y + sliderH, sliderW, labelH);
 
     // Row 3
     x = margin;
     y += sliderH + labelH + margin;
+
+    parameters[11].setBounds(x, y, sliderW, sliderH);  // Bass Depth
+    labels[11].setBounds(x, y + sliderH, sliderW, labelH);
+    x += sliderW + margin;
 
     parameters[12].setBounds(x, y, sliderW, sliderH);  // Mid Depth
     labels[12].setBounds(x, y + sliderH, sliderW, labelH);
@@ -183,12 +209,20 @@ void AutoTremolandoAudioProcessorEditor::resized()
     labels[13].setBounds(x, y + sliderH, sliderW, labelH);
     x += sliderW + margin;
 
+    parameters[18].setBounds(x, y, sliderW, sliderH);  // Depth Offset
+    labels[18].setBounds(x, y + sliderH, sliderW, labelH);
+    x += sliderW + margin;
+
     parameters[14].setBounds(x, y, sliderW, sliderH);  // Wet
     labels[14].setBounds(x, y + sliderH, sliderW, labelH);
     x += sliderW + margin;
 
     parameters[5].setBounds(x, y, sliderW, sliderH);   // Output (last in chain)
     labels[5].setBounds(x, y + sliderH, sliderW, labelH);
+    x += sliderW + margin;
+
+    parameters[15].setBounds(x, y, sliderW, sliderH);  // Presence
+    labels[15].setBounds(x, y + sliderH, sliderW, labelH);
 
     //==============================================================
     // Right-side menus (unchanged)
