@@ -52,6 +52,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout AutoTremolandoAudioProcessor
     params.push_back(std::make_unique<juce::AudioParameterFloat>("MID_TREM_RATE", "Mid Rate", 1.0f, 15.0f, 5.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("TREBLE_TREM_RATE", "Treble Rate", 1.0f, 15.0f, 5.0f));
 
+    // Master Rate (multiplier for all band rates)
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("MASTER_RATE", "Master Rate", 0.5f, 2.0f, 1.0f));
+
     // Per-band DEPTH
     params.push_back(std::make_unique<juce::AudioParameterFloat>("SUB_TREM_DEPTH", "Sub Depth", 0.0f, 1.0f, 0.5f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("BASS_TREM_DEPTH", "Bass Depth", 0.0f, 1.0f, 0.5f));
@@ -66,6 +69,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout AutoTremolandoAudioProcessor
     params.push_back(std::make_unique<juce::AudioParameterFloat>("DEPTH_OFFSET", "Depth Offset", -1.0f, 1.0f, 0.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("PULSE_WIDTH", "Pulse Width", 0.05f, 0.95f, 0.5f));
 
+    // Bypass
+    params.push_back(std::make_unique<juce::AudioParameterBool>("BYPASS", "Bypass", false));
+
     return { params.begin(), params.end() };
 }
 
@@ -74,25 +80,31 @@ void AutoTremolandoAudioProcessor::initPresets()
 {
     presets = {
         { "Preset 1", {
-        0, 0, 0, 0,          // fTrem types
-        0.5f, 0.5f,          // Input / Output
-        5.0f, 5.0f, 5.0f, 5.0f,   // Rates
-        0.5f, 0.5f, 0.5f, 0.5f,   // Depths
-        0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.5f     // Wet, Presence, Phase, Rate, Depth, Pulse Width
+        0.5f, 0.0f,          // Input, Presence
+        0, 0, 0, 0,          // Sub/Bass/Mid/Treble Tremolo types
+        1.0f,                // Master Rate
+        5.0f, 5.0f, 5.0f, 5.0f,   // Sub/Bass/Mid/Treble Rates
+        0.5f, 0.5f, 0.5f, 0.5f,   // Sub/Bass/Mid/Treble Depths
+        0.0f, 0.0f, 0.0f, 0.5f,   // Phase Offset, Rate Offset, Depth Offset, Pulse Width
+        1.0f, 0.5f, 0.0f     // Wet, Output, Bypass
     }},
-    { "Preset 2",{
-        0, 0, 0, 0,          // fTrem types
-        0.5f, 0.5f,          // Input / Output
-        5.0f, 5.0f, 5.0f, 5.0f,   // Rates
-        0.5f, 0.5f, 0.5f, 0.5f,   // Depths
-        0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.5f     // Wet, Presence, Phase, Rate, Depth, Pulse Width
+    { "Preset 2", {
+        0.5f, 0.0f,          // Input, Presence
+        0, 0, 0, 0,          // Sub/Bass/Mid/Treble Tremolo types
+        1.0f,                // Master Rate
+        5.0f, 5.0f, 5.0f, 5.0f,   // Sub/Bass/Mid/Treble Rates
+        0.5f, 0.5f, 0.5f, 0.5f,   // Sub/Bass/Mid/Treble Depths
+        0.0f, 0.0f, 0.0f, 0.5f,   // Phase Offset, Rate Offset, Depth Offset, Pulse Width
+        1.0f, 0.5f, 0.0f     // Wet, Output, Bypass
     }},
     { "Preset 3", {
-        0, 0, 0, 0,          // fTrem types
-        0.5f, 0.5f,          // Input / Output
-        5.0f, 5.0f, 5.0f, 5.0f,   // Rates
-        0.5f, 0.5f, 0.5f, 0.5f,   // Depths
-        0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.5f     // Wet, Presence, Phase, Rate, Depth, Pulse Width
+        0.5f, 0.0f,          // Input, Presence
+        0, 0, 0, 0,          // Sub/Bass/Mid/Treble Tremolo types
+        1.0f,                // Master Rate
+        5.0f, 5.0f, 5.0f, 5.0f,   // Sub/Bass/Mid/Treble Rates
+        0.5f, 0.5f, 0.5f, 0.5f,   // Sub/Bass/Mid/Treble Depths
+        0.0f, 0.0f, 0.0f, 0.5f,   // Phase Offset, Rate Offset, Depth Offset, Pulse Width
+        1.0f, 0.5f, 0.0f     // Wet, Output, Bypass
     }}
     };
 
@@ -105,11 +117,13 @@ void AutoTremolandoAudioProcessor::loadPreset(int index)
     auto& preset = presets[index];
 
     const char* paramIDs[] = {
+        "INPUT_GAIN", "PRESENCE",
         "SUB_TREMOLO", "BASS_TREMOLO", "MID_TREMOLO", "TREBLE_TREMOLO",
-        "INPUT_GAIN", "OUTPUT_GAIN",
+        "MASTER_RATE",
         "SUB_TREM_RATE", "BASS_TREM_RATE", "MID_TREM_RATE", "TREBLE_TREM_RATE",
         "SUB_TREM_DEPTH", "BASS_TREM_DEPTH", "MID_TREM_DEPTH", "TREBLE_TREM_DEPTH",
-        "WET", "PRESENCE", "PHASE_OFFSET", "RATE_OFFSET", "DEPTH_OFFSET", "PULSE_WIDTH"
+        "PHASE_OFFSET", "RATE_OFFSET", "DEPTH_OFFSET", "PULSE_WIDTH",
+        "WET", "OUTPUT_GAIN", "BYPASS"
     };
 
     for (int i = 0; i < (int)preset.values.size(); ++i)
@@ -247,6 +261,10 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
 	auto totalNumInputChannels = getTotalNumInputChannels();
 	auto numSamples = buffer.getNumSamples();
 
+	bool bBypass = *apvts.getRawParameterValue("BYPASS") > 0.5f;
+	if (bBypass)
+		return;
+
 	float fInGain = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
 	float fOutGain = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
 	float fWetDryControl = std::pow(*apvts.getRawParameterValue("WET"), 3.0f);
@@ -256,6 +274,10 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
 	fRate[1] = *apvts.getRawParameterValue("BASS_TREM_RATE");
 	fRate[2] = *apvts.getRawParameterValue("MID_TREM_RATE");
 	fRate[3] = *apvts.getRawParameterValue("TREBLE_TREM_RATE");
+
+	float fMasterRate = *apvts.getRawParameterValue("MASTER_RATE");
+	for (int b = 0; b < 4; ++b)
+		fRate[b] *= fMasterRate;
 
 	fDepth[0] = *apvts.getRawParameterValue("SUB_TREM_DEPTH");
 	fDepth[1] = *apvts.getRawParameterValue("BASS_TREM_DEPTH");
@@ -362,6 +384,10 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<double>& buffe
 	auto totalNumInputChannels = getTotalNumInputChannels();
 	auto numSamples = buffer.getNumSamples();
 
+	bool bBypass = *apvts.getRawParameterValue("BYPASS") > 0.5f;
+	if (bBypass)
+		return;
+
 	float fInGain = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
 	float fOutGain = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
 	float fWetDryControl = std::pow(*apvts.getRawParameterValue("WET"), 3.0f);
@@ -371,6 +397,10 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<double>& buffe
 	fRate[1] = *apvts.getRawParameterValue("BASS_TREM_RATE");
 	fRate[2] = *apvts.getRawParameterValue("MID_TREM_RATE");
 	fRate[3] = *apvts.getRawParameterValue("TREBLE_TREM_RATE");
+
+	float fMasterRate = *apvts.getRawParameterValue("MASTER_RATE");
+	for (int b = 0; b < 4; ++b)
+		fRate[b] *= fMasterRate;
 
 	fDepth[0] = *apvts.getRawParameterValue("SUB_TREM_DEPTH");
 	fDepth[1] = *apvts.getRawParameterValue("BASS_TREM_DEPTH");

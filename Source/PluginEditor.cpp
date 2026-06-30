@@ -14,27 +14,31 @@ static void setupSlider(juce::Slider& s)
 AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremolandoAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
-    setSize(1000, 600);
+    setSize(1400, 700);
 
     //======================================================================
-    // Parameter IDs in the exact order used by the processor
+    // Parameter IDs in DSP signal-chain order
     //======================================================================
     const juce::String paramIDs[NUM_OF_PARAMETERS] =
     {
+        "INPUT_GAIN", "PRESENCE",
         "SUB_TREMOLO", "BASS_TREMOLO", "MID_TREMOLO", "TREBLE_TREMOLO",
-        "INPUT_GAIN", "OUTPUT_GAIN",
+        "MASTER_RATE",
         "SUB_TREM_RATE", "BASS_TREM_RATE", "MID_TREM_RATE", "TREBLE_TREM_RATE",
         "SUB_TREM_DEPTH", "BASS_TREM_DEPTH", "MID_TREM_DEPTH", "TREBLE_TREM_DEPTH",
-        "WET", "PRESENCE", "PHASE_OFFSET", "RATE_OFFSET", "DEPTH_OFFSET", "PULSE_WIDTH"
+        "PHASE_OFFSET", "RATE_OFFSET", "DEPTH_OFFSET", "PULSE_WIDTH",
+        "WET", "OUTPUT_GAIN", "BYPASS"
     };
 
     const juce::String paramLabels[NUM_OF_PARAMETERS] =
     {
-        "Sub fTrem Type", "Bass fTrem Type", "Mid fTrem Type", "Treble fTrem Type",
-        "Input", "Output",
+        "Input", "Presence",
+        "Sub Type", "Bass Type", "Mid Type", "Treble Type",
+        "Master Rate",
         "Sub Rate", "Bass Rate", "Mid Rate", "Treble Rate",
         "Sub Depth", "Bass Depth", "Mid Depth", "Treble Depth",
-        "Wet", "Presence", "Offset", "Rate Offset", "Depth Offset", "Pulse Width"
+        "Phase Offset", "Rate Offset", "Depth Offset", "Pulse Width",
+        "Wet", "Output", "Bypass"
     };
 
     //======================================================================
@@ -108,12 +112,31 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
         };
 
     //======================================================================
+    // Bypass button
+    //======================================================================
+    bypassLabel.setText("Bypass", juce::dontSendNotification);
+    bypassLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(bypassLabel);
+
+    bypassButton.setButtonText("OFF");
+    addAndMakeVisible(bypassButton);
+
+    bypassButton.onClick = [this]()
+        {
+            bool bCurrentBypass = *audioProcessor.apvts.getRawParameterValue("BYPASS") > 0.5f;
+            bool bNewBypass = !bCurrentBypass;
+            if (auto* param = audioProcessor.apvts.getParameter("BYPASS"))
+                param->setValueNotifyingHost(bNewBypass ? 1.0f : 0.0f);
+            bypassButton.setButtonText(bNewBypass ? "ON" : "OFF");
+        };
+
+    //======================================================================
     // Disable channel spread controls in mono
     //======================================================================
     bool bEnableChannelSpread = audioProcessor.getTotalNumOutputChannels() > 1;
     float fChannelSpreadAlpha = bEnableChannelSpread ? 1.0f : 0.5f;
 
-    for (int i = 16; i <= 18; ++i)
+    for (int i = 15; i <= 17; ++i)
     {
         parameters[i].setEnabled(bEnableChannelSpread);
         labels[i].setEnabled(bEnableChannelSpread);
@@ -150,103 +173,112 @@ void AutoTremolandoAudioProcessorEditor::resized()
     int x = margin;
     int y = 60;
 
-    // Row 1
-    parameters[4].setBounds(x, y, sliderW, sliderH);   // Input
-    labels[4].setBounds(x, y + sliderH, sliderW, labelH);
+    // Row 1 (3 items) - Input, Presence, Pulse Width
+    parameters[0].setBounds(x, y, sliderW, sliderH);   // Input Gain
+    labels[0].setBounds(x, y + sliderH, sliderW, labelH);
     x += sliderW + margin;
 
-    parameters[15].setBounds(x, y, sliderW, sliderH);  // Presence
-    labels[15].setBounds(x, y + sliderH, sliderW, labelH);
+    parameters[1].setBounds(x, y, sliderW, sliderH);   // Presence
+    labels[1].setBounds(x, y + sliderH, sliderW, labelH);
     x += sliderW + margin;
 
-    parameters[6].setBounds(x, y, sliderW, sliderH);   // Sub Rate
-    labels[6].setBounds(x, y + sliderH, sliderW, labelH);
-    x += sliderW + margin;
+    parameters[18].setBounds(x, y, sliderW, sliderH);  // Pulse Width
+    labels[18].setBounds(x, y + sliderH, sliderW, labelH);
 
-    parameters[7].setBounds(x, y, sliderW, sliderH);   // Bass Rate
+    // Row 2 (4 items) - Rates grouped
+    x = margin;
+    y += sliderH + labelH + margin;
+
+    parameters[7].setBounds(x, y, sliderW, sliderH);   // Sub Rate
     labels[7].setBounds(x, y + sliderH, sliderW, labelH);
     x += sliderW + margin;
 
-    parameters[16].setBounds(x, y, sliderW, sliderH);  // Offset
-    labels[16].setBounds(x, y + sliderH, sliderW, labelH);
-    x += sliderW + margin;
-
-    parameters[19].setBounds(x, y, sliderW, sliderH);  // Pulse Width
-    labels[19].setBounds(x, y + sliderH, sliderW, labelH);
-
-    // Row 2
-    x = margin;
-    y += sliderH + labelH + margin;
-
-    parameters[8].setBounds(x, y, sliderW, sliderH);   // Mid Rate
+    parameters[8].setBounds(x, y, sliderW, sliderH);   // Bass Rate
     labels[8].setBounds(x, y + sliderH, sliderW, labelH);
     x += sliderW + margin;
 
-    parameters[9].setBounds(x, y, sliderW, sliderH);   // Treble Rate
+    parameters[9].setBounds(x, y, sliderW, sliderH);   // Mid Rate
     labels[9].setBounds(x, y + sliderH, sliderW, labelH);
     x += sliderW + margin;
 
-    parameters[17].setBounds(x, y, sliderW, sliderH);  // Rate Offset
-    labels[17].setBounds(x, y + sliderH, sliderW, labelH);
-    x += sliderW + margin;
-
-    parameters[10].setBounds(x, y, sliderW, sliderH);  // Sub Depth
+    parameters[10].setBounds(x, y, sliderW, sliderH);   // Treble Rate
     labels[10].setBounds(x, y + sliderH, sliderW, labelH);
 
-    // Row 3
+    // Row 3 (4 items) - Depths grouped
     x = margin;
     y += sliderH + labelH + margin;
 
-    parameters[11].setBounds(x, y, sliderW, sliderH);  // Bass Depth
+    parameters[11].setBounds(x, y, sliderW, sliderH);  // Sub Depth
     labels[11].setBounds(x, y + sliderH, sliderW, labelH);
     x += sliderW + margin;
 
-    parameters[12].setBounds(x, y, sliderW, sliderH);  // Mid Depth
+    parameters[12].setBounds(x, y, sliderW, sliderH);  // Bass Depth
     labels[12].setBounds(x, y + sliderH, sliderW, labelH);
     x += sliderW + margin;
 
-    parameters[13].setBounds(x, y, sliderW, sliderH);  // Treble Depth
+    parameters[13].setBounds(x, y, sliderW, sliderH);  // Mid Depth
     labels[13].setBounds(x, y + sliderH, sliderW, labelH);
     x += sliderW + margin;
 
-    parameters[18].setBounds(x, y, sliderW, sliderH);  // Depth Offset
-    labels[18].setBounds(x, y + sliderH, sliderW, labelH);
-    x += sliderW + margin;
-
-    parameters[14].setBounds(x, y, sliderW, sliderH);  // Wet
+    parameters[14].setBounds(x, y, sliderW, sliderH);  // Treble Depth
     labels[14].setBounds(x, y + sliderH, sliderW, labelH);
+
+    // Row 4 (5 items) - Rate Offset, Master Rate, Depth Offset, Phase Offset, Wet/Dry, Output
+    x = margin;
+    y += sliderH + labelH + margin;
+
+    parameters[16].setBounds(x, y, sliderW, sliderH);  // Rate Offset
+    labels[16].setBounds(x, y + sliderH, sliderW, labelH);
     x += sliderW + margin;
 
-    parameters[5].setBounds(x, y, sliderW, sliderH);   // Output (last in chain)
-    labels[5].setBounds(x, y + sliderH, sliderW, labelH);
+    parameters[6].setBounds(x, y, sliderW, sliderH);   // Master Rate
+    labels[6].setBounds(x, y + sliderH, sliderW, labelH);
     x += sliderW + margin;
 
-    parameters[15].setBounds(x, y, sliderW, sliderH);  // Presence
+    parameters[17].setBounds(x, y, sliderW, sliderH);  // Depth Offset
+    labels[17].setBounds(x, y + sliderH, sliderW, labelH);
+    x += sliderW + margin;
+
+    parameters[15].setBounds(x, y, sliderW, sliderH);  // Phase Offset
     labels[15].setBounds(x, y + sliderH, sliderW, labelH);
+    x += sliderW + margin;
+
+    parameters[19].setBounds(x, y, sliderW, sliderH);  // Wet
+    labels[19].setBounds(x, y + sliderH, sliderW, labelH);
+    x += sliderW + margin;
+
+    parameters[20].setBounds(x, y, sliderW, sliderH);  // Output Gain
+    labels[20].setBounds(x, y + sliderH, sliderW, labelH);
 
     //==============================================================
-    // Right-side menus (unchanged)
+    // Right-side menus and controls
     //==============================================================
     int menuW = 140;
     int menuH = 25;
 
-    int menuX = getWidth() - menuW - margin;
+    int menuX = 622;  // Centre the menus horizontally
     int menuY = 60;
 
-    presetLabel.setBounds(menuX, 20, menuW, 20);
-    presetMenu.setBounds(menuX, 45, menuW, 25);
+    presetLabel.setBounds(menuX, menuY, menuW, 20);
+    presetMenu.setBounds(menuX, menuY + 20, menuW, 25);
+    menuY += 45;
 
+    bypassLabel.setBounds(menuX, menuY, menuW, 20);
+    bypassButton.setBounds(menuX, menuY + 20, menuW, menuH);
+    menuY += 50;
+
+    // Tremolo type menus - positioned after bypass with tighter spacing
     subTremLabel.setBounds(menuX, menuY, menuW, labelH);
     subTremMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
-    menuY += labelH + menuH + margin;
+    menuY += labelH + menuH + 8;
 
     bassTremLabel.setBounds(menuX, menuY, menuW, labelH);
     bassTremMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
-    menuY += labelH + menuH + margin;
+    menuY += labelH + menuH + 8;
 
     midTremLabel.setBounds(menuX, menuY, menuW, labelH);
     midTremMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
-    menuY += labelH + menuH + margin;
+    menuY += labelH + menuH + 8;
 
     trebleTremLabel.setBounds(menuX, menuY, menuW, labelH);
     trebleTremMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
