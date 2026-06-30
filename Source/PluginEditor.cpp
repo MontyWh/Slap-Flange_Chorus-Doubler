@@ -30,7 +30,7 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
 
     const juce::String paramLabels[NUM_OF_PARAMETERS] =
     {
-        "Sub Trem Type", "Bass Trem Type", "Mid Trem Type", "Treble Trem Type",
+        "Sub fTrem Type", "Bass fTrem Type", "Mid fTrem Type", "Treble fTrem Type",
         "Input", "Output",
         "Sub Rate", "Bass Rate", "Mid Rate", "Treble Rate",
         "Sub Depth", "Bass Depth", "Mid Depth", "Treble Depth",

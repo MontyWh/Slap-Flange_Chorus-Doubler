@@ -9,6 +9,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "PluginExtra.h"
+#include <type_traits>
 
 //==============================================================================
 AutoTremolandoAudioProcessor::AutoTremolandoAudioProcessor()
@@ -73,21 +74,21 @@ void AutoTremolandoAudioProcessor::initPresets()
 {
     presets = {
         { "Preset 1", {
-        0, 0, 0, 0,          // Trem types
+        0, 0, 0, 0,          // fTrem types
         0.5f, 0.5f,          // Input / Output
         5.0f, 5.0f, 5.0f, 5.0f,   // Rates
         0.5f, 0.5f, 0.5f, 0.5f,   // Depths
         0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.5f     // Wet, Presence, Phase, Rate, Depth, Pulse Width
     }},
     { "Preset 2",{
-        0, 0, 0, 0,          // Trem types
+        0, 0, 0, 0,          // fTrem types
         0.5f, 0.5f,          // Input / Output
         5.0f, 5.0f, 5.0f, 5.0f,   // Rates
         0.5f, 0.5f, 0.5f, 0.5f,   // Depths
         0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.5f     // Wet, Presence, Phase, Rate, Depth, Pulse Width
     }},
     { "Preset 3", {
-        0, 0, 0, 0,          // Trem types
+        0, 0, 0, 0,          // fTrem types
         0.5f, 0.5f,          // Input / Output
         5.0f, 5.0f, 5.0f, 5.0f,   // Rates
         0.5f, 0.5f, 0.5f, 0.5f,   // Depths
@@ -182,6 +183,7 @@ void AutoTremolandoAudioProcessor::prepareToPlay(double sampleRate, int samplesP
 {
     int numChannels = getTotalNumInputChannels();
     int numOutputChannels = getTotalNumOutputChannels();
+
     fSampleRate = static_cast<float>(sampleRate);
 
     juce::dsp::ProcessSpec spec;
@@ -241,113 +243,237 @@ bool AutoTremolandoAudioProcessor::isBusesLayoutSupported(const BusesLayout& lay
 //==============================================================================
 void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
-    juce::ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels = getTotalNumInputChannels();
-    auto numSamples = buffer.getNumSamples();
+	juce::ScopedNoDenormals noDenormals;
+	auto totalNumInputChannels = getTotalNumInputChannels();
+	auto numSamples = buffer.getNumSamples();
 
-    float fInGain = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
-    float fOutGain = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
-    float fWetDryControl = std::pow(*apvts.getRawParameterValue("WET"), 3.0f);
-    float fPresence = *apvts.getRawParameterValue("PRESENCE");
+	float fInGain = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
+	float fOutGain = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
+	float fWetDryControl = std::pow(*apvts.getRawParameterValue("WET"), 3.0f);
+	float fPresence = *apvts.getRawParameterValue("PRESENCE");
 
-    fRate[0] = *apvts.getRawParameterValue("SUB_TREM_RATE");
-    fRate[1] = *apvts.getRawParameterValue("BASS_TREM_RATE");
-    fRate[2] = *apvts.getRawParameterValue("MID_TREM_RATE");
-    fRate[3] = *apvts.getRawParameterValue("TREBLE_TREM_RATE");
+	fRate[0] = *apvts.getRawParameterValue("SUB_TREM_RATE");
+	fRate[1] = *apvts.getRawParameterValue("BASS_TREM_RATE");
+	fRate[2] = *apvts.getRawParameterValue("MID_TREM_RATE");
+	fRate[3] = *apvts.getRawParameterValue("TREBLE_TREM_RATE");
 
-    fDepth[0] = *apvts.getRawParameterValue("SUB_TREM_DEPTH");
-    fDepth[1] = *apvts.getRawParameterValue("BASS_TREM_DEPTH");
-    fDepth[2] = *apvts.getRawParameterValue("MID_TREM_DEPTH");
-    fDepth[3] = *apvts.getRawParameterValue("TREBLE_TREM_DEPTH");
+	fDepth[0] = *apvts.getRawParameterValue("SUB_TREM_DEPTH");
+	fDepth[1] = *apvts.getRawParameterValue("BASS_TREM_DEPTH");
+	fDepth[2] = *apvts.getRawParameterValue("MID_TREM_DEPTH");
+	fDepth[3] = *apvts.getRawParameterValue("TREBLE_TREM_DEPTH");
 
-    float fPhaseOffsetDegrees = *apvts.getRawParameterValue("PHASE_OFFSET");
-    float fPhaseOffsetRadians = juce::degreesToRadians(fPhaseOffsetDegrees);
-    float fRateOffset = *apvts.getRawParameterValue("RATE_OFFSET");
-    float fDepthOffset = *apvts.getRawParameterValue("DEPTH_OFFSET");
-    float fPulseWidth = *apvts.getRawParameterValue("PULSE_WIDTH");
+	float fPhaseOffsetDegrees = *apvts.getRawParameterValue("PHASE_OFFSET");
+	float fPhaseOffsetRadians = juce::degreesToRadians(fPhaseOffsetDegrees);
+	float fRateOffset = *apvts.getRawParameterValue("RATE_OFFSET");
+	float fDepthOffset = *apvts.getRawParameterValue("DEPTH_OFFSET");
+	float fPulseWidth = *apvts.getRawParameterValue("PULSE_WIDTH");
 
-    if (totalNumInputChannels <= 1)
-    {
-        if (!fPhaseOffset.empty())
-            fPhaseOffset[0] = 0.0f;
-    }
-    else if (totalNumInputChannels == 2)
-    {
-        fPhaseOffset[0] = 0.0f;
-        fPhaseOffset[1] = fPhaseOffsetRadians;
-    }
-    else
-    {
-        for (int channel = 0; channel < totalNumInputChannels; ++channel)
-            fPhaseOffset[channel] = fPhaseOffsetRadians * ((float)channel / (float)(totalNumInputChannels - 1));
-    }
+	if (totalNumInputChannels <= 1)
+	{
+		if (!fPhaseOffset.empty())
+			fPhaseOffset[0] = 0.0f;
+	}
+	else if (totalNumInputChannels == 2)
+	{
+		fPhaseOffset[0] = 0.0f;
+		fPhaseOffset[1] = fPhaseOffsetRadians;
+	}
+	else
+	{
+		for (int channel = 0; channel < totalNumInputChannels; ++channel)
+			fPhaseOffset[channel] = fPhaseOffsetRadians * ((float)channel / (float)(totalNumInputChannels - 1));
+	}
 
-    float presenceFreq = fPresence * 19000.0f + 1000.0f;
-    auto resonanceCoeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, presenceFreq, 1.41f, 1.41f);
+	float presenceFreq = fPresence * 19000.0f + 1000.0f;
+	auto resonanceCoeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, presenceFreq, 1.41f, 1.41f);
 
-    auto subCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 60.0f);
-    auto bassLCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 250.0f);
-    auto bassUCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 60.0f);
-    auto midLCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 2000.0f);
-    auto midUCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 250.0f);
-    auto trebCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 2000.0f);
+	auto subCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 60.0f);
+	auto bassLCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 250.0f);
+	auto bassUCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 60.0f);
+	auto midLCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 2000.0f);
+	auto midUCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 250.0f);
+	auto trebCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 2000.0f);
 
-    for (int i = 0; i < totalNumInputChannels; ++i)
-    {
-        resonanceFilter[i]->coefficients = resonanceCoeffs;
-        subBass[i]->coefficients = subCoeffs;
-        bassLower[i]->coefficients = bassLCoeffs;
-        bassUpper[i]->coefficients = bassUCoeffs;
-        midLower[i]->coefficients = midLCoeffs;
-        midUpper[i]->coefficients = midUCoeffs;
-        treble[i]->coefficients = trebCoeffs;
-    }
+	for (int i = 0; i < totalNumInputChannels; ++i)
+	{
+		resonanceFilter[i]->coefficients = resonanceCoeffs;
+		subBass[i]->coefficients = subCoeffs;
+		bassLower[i]->coefficients = bassLCoeffs;
+		bassUpper[i]->coefficients = bassUCoeffs;
+		midLower[i]->coefficients = midLCoeffs;
+		midUpper[i]->coefficients = midUCoeffs;
+		treble[i]->coefficients = trebCoeffs;
+	}
 
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
-    {
-        float fChannelScale = 0.0f;
-        if (totalNumInputChannels > 1)
-            fChannelScale = (float)channel / (float)(totalNumInputChannels - 1);
+	for (int channel = 0; channel < totalNumInputChannels; ++channel)
+	{
+		float fChannelScale = 0.0f;
+		if (totalNumInputChannels > 1)
+			fChannelScale = (float)channel / (float)(totalNumInputChannels - 1);
 
-        float fChannelRate[4];
-        float fChannelDepth[4];
-        for (int b = 0; b < 4; ++b)
-        {
-            fChannelRate[b] = juce::jlimit(1.0f, 15.0f, fRate[b] + (fRateOffset * fChannelScale));
-            fChannelDepth[b] = juce::jlimit(0.0f, 1.0f, fDepth[b] + (fDepthOffset * fChannelScale));
-        }
+		float fChannelRate[4];
+		float fChannelDepth[4];
+		for (int b = 0; b < 4; ++b)
+		{
+			fChannelRate[b] = juce::jlimit(1.0f, 15.0f, fRate[b] + (fRateOffset * fChannelScale));
+			fChannelDepth[b] = juce::jlimit(0.0f, 1.0f, fDepth[b] + (fDepthOffset * fChannelScale));
+		}
 
-        auto* channelData = buffer.getWritePointer(channel);
+		auto* channelData = buffer.getWritePointer(channel);
 
-        for (int iSample = 0; iSample < numSamples; ++iSample)
-        {
-            float fInput = channelData[iSample];
-            float fDry = fInput * fInGain;
+		for (int iSample = 0; iSample < numSamples; ++iSample)
+		{
+			using SampleType = std::remove_reference_t<decltype(channelData[iSample])>;
 
-            float fWet = resonanceFilter[channel]->processSample(fDry) * (1.0f - 0.41f);
+			auto input = channelData[iSample];
+			auto dry = input * static_cast<SampleType>(fInGain);
+			auto wet = static_cast<SampleType>(resonanceFilter[channel]->processSample(static_cast<float>(dry)))
+				* static_cast<SampleType>(1.0f - 0.41f);
 
-            float fBand[4];
-            int iChoice[4];
+			float fBand[4];
+			int iChoice[4];
 			iChoice[0] = (int)*apvts.getRawParameterValue("SUB_TREMOLO");
 			iChoice[1] = (int)*apvts.getRawParameterValue("BASS_TREMOLO");
 			iChoice[2] = (int)*apvts.getRawParameterValue("MID_TREMOLO");
 			iChoice[3] = (int)*apvts.getRawParameterValue("TREBLE_TREMOLO");
 
-            fBand[0] = subBass[channel]->processSample(fWet);
-            fBand[1] = bassUpper[channel]->processSample(fWet)
-                + bassLower[channel]->processSample(fDry);
-            fBand[2] = midUpper[channel]->processSample(fWet)
-                + midLower[channel]->processSample(fDry);
-            fBand[3] = treble[channel]->processSample(fWet);
+			fBand[0] = subBass[channel]->processSample(static_cast<float>(wet));
+			fBand[1] = bassUpper[channel]->processSample(static_cast<float>(wet))
+				+ bassLower[channel]->processSample(static_cast<float>(dry));
+			fBand[2] = midUpper[channel]->processSample(static_cast<float>(wet))
+				+ midLower[channel]->processSample(static_cast<float>(dry));
+			fBand[3] = treble[channel]->processSample(static_cast<float>(wet));
 
-            tremolo.processChannelBands(channel, fBand, fChannelDepth, iChoice, fChannelRate, fSampleRate, fPhaseOffset[channel], fPulseWidth);
+			tremolo.processChannelBands(channel, fBand, fChannelDepth, iChoice, fChannelRate, fSampleRate, fPhaseOffset[channel], fPulseWidth);
 
-            float fSummedBands = fBand[0] + fBand[1] + fBand[2] + fBand[3];
+			auto summedBands = static_cast<SampleType>(fBand[0]) + static_cast<SampleType>(fBand[1])
+				+ static_cast<SampleType>(fBand[2]) + static_cast<SampleType>(fBand[3]);
+			auto output = (summedBands * static_cast<SampleType>(fWetDryControl))
+				+ (dry * (static_cast<SampleType>(1.0f) - static_cast<SampleType>(fWetDryControl)));
 
-            float fOutput = (fSummedBands * fWetDryControl) + (fDry * (1.0f - fWetDryControl));
-            channelData[iSample] = fOutput * fOutGain;
-        }
-    }
+			channelData[iSample] = output * static_cast<SampleType>(fOutGain);
+		}
+	}
+}
+
+void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<double>& buffer, juce::MidiBuffer&)
+{
+	juce::ScopedNoDenormals noDenormals;
+	auto totalNumInputChannels = getTotalNumInputChannels();
+	auto numSamples = buffer.getNumSamples();
+
+	float fInGain = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
+	float fOutGain = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
+	float fWetDryControl = std::pow(*apvts.getRawParameterValue("WET"), 3.0f);
+	float fPresence = *apvts.getRawParameterValue("PRESENCE");
+
+	fRate[0] = *apvts.getRawParameterValue("SUB_TREM_RATE");
+	fRate[1] = *apvts.getRawParameterValue("BASS_TREM_RATE");
+	fRate[2] = *apvts.getRawParameterValue("MID_TREM_RATE");
+	fRate[3] = *apvts.getRawParameterValue("TREBLE_TREM_RATE");
+
+	fDepth[0] = *apvts.getRawParameterValue("SUB_TREM_DEPTH");
+	fDepth[1] = *apvts.getRawParameterValue("BASS_TREM_DEPTH");
+	fDepth[2] = *apvts.getRawParameterValue("MID_TREM_DEPTH");
+	fDepth[3] = *apvts.getRawParameterValue("TREBLE_TREM_DEPTH");
+
+	float fPhaseOffsetDegrees = *apvts.getRawParameterValue("PHASE_OFFSET");
+	float fPhaseOffsetRadians = juce::degreesToRadians(fPhaseOffsetDegrees);
+	float fRateOffset = *apvts.getRawParameterValue("RATE_OFFSET");
+	float fDepthOffset = *apvts.getRawParameterValue("DEPTH_OFFSET");
+	float fPulseWidth = *apvts.getRawParameterValue("PULSE_WIDTH");
+
+	if (totalNumInputChannels <= 1)
+	{
+		if (!fPhaseOffset.empty())
+			fPhaseOffset[0] = 0.0f;
+	}
+	else if (totalNumInputChannels == 2)
+	{
+		fPhaseOffset[0] = 0.0f;
+		fPhaseOffset[1] = fPhaseOffsetRadians;
+	}
+	else
+	{
+		for (int channel = 0; channel < totalNumInputChannels; ++channel)
+			fPhaseOffset[channel] = fPhaseOffsetRadians * ((float)channel / (float)(totalNumInputChannels - 1));
+	}
+
+	float presenceFreq = fPresence * 19000.0f + 1000.0f;
+	auto resonanceCoeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, presenceFreq, 1.41f, 1.41f);
+
+	auto subCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 60.0f);
+	auto bassLCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 250.0f);
+	auto bassUCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 60.0f);
+	auto midLCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 2000.0f);
+	auto midUCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 250.0f);
+	auto trebCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 2000.0f);
+
+	for (int i = 0; i < totalNumInputChannels; ++i)
+	{
+		resonanceFilter[i]->coefficients = resonanceCoeffs;
+		subBass[i]->coefficients = subCoeffs;
+		bassLower[i]->coefficients = bassLCoeffs;
+		bassUpper[i]->coefficients = bassUCoeffs;
+		midLower[i]->coefficients = midLCoeffs;
+		midUpper[i]->coefficients = midUCoeffs;
+		treble[i]->coefficients = trebCoeffs;
+	}
+
+	for (int channel = 0; channel < totalNumInputChannels; ++channel)
+	{
+		float fChannelScale = 0.0f;
+		if (totalNumInputChannels > 1)
+			fChannelScale = (float)channel / (float)(totalNumInputChannels - 1);
+
+		float fChannelRate[4];
+		float fChannelDepth[4];
+		for (int b = 0; b < 4; ++b)
+		{
+			fChannelRate[b] = juce::jlimit(1.0f, 15.0f, fRate[b] + (fRateOffset * fChannelScale));
+			fChannelDepth[b] = juce::jlimit(0.0f, 1.0f, fDepth[b] + (fDepthOffset * fChannelScale));
+		}
+
+		auto* channelData = buffer.getWritePointer(channel);
+
+		for (int iSample = 0; iSample < numSamples; ++iSample)
+		{
+			using SampleType = std::remove_reference_t<decltype(channelData[iSample])>;
+
+			auto input = channelData[iSample];
+			auto dry = input * static_cast<SampleType>(fInGain);
+			auto wet = static_cast<SampleType>(resonanceFilter[channel]->processSample(static_cast<float>(dry)))
+				* static_cast<SampleType>(1.0f - 0.41f);
+
+			float fBand[4];
+			int iChoice[4];
+			iChoice[0] = (int)*apvts.getRawParameterValue("SUB_TREMOLO");
+			iChoice[1] = (int)*apvts.getRawParameterValue("BASS_TREMOLO");
+			iChoice[2] = (int)*apvts.getRawParameterValue("MID_TREMOLO");
+			iChoice[3] = (int)*apvts.getRawParameterValue("TREBLE_TREMOLO");
+
+			fBand[0] = subBass[channel]->processSample(static_cast<float>(wet));
+			fBand[1] = bassUpper[channel]->processSample(static_cast<float>(wet))
+				+ bassLower[channel]->processSample(static_cast<float>(dry));
+			fBand[2] = midUpper[channel]->processSample(static_cast<float>(wet))
+				+ midLower[channel]->processSample(static_cast<float>(dry));
+			fBand[3] = treble[channel]->processSample(static_cast<float>(wet));
+
+			tremolo.processChannelBands(channel, fBand, fChannelDepth, iChoice, fChannelRate, fSampleRate, fPhaseOffset[channel], fPulseWidth);
+
+			auto summedBands = static_cast<SampleType>(fBand[0]) + static_cast<SampleType>(fBand[1])
+				+ static_cast<SampleType>(fBand[2]) + static_cast<SampleType>(fBand[3]);
+			auto output = (summedBands * static_cast<SampleType>(fWetDryControl))
+				+ (dry * (static_cast<SampleType>(1.0f) - static_cast<SampleType>(fWetDryControl)));
+
+			channelData[iSample] = output * static_cast<SampleType>(fOutGain);
+		}
+	}
+}
+
+bool AutoTremolandoAudioProcessor::supportsDoublePrecisionProcessing() const
+{
+	return true;
 }
 
 //==============================================================================

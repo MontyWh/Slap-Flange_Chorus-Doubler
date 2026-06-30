@@ -26,6 +26,8 @@ public:
 #endif
 
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    void processBlock(juce::AudioBuffer<double>&, juce::MidiBuffer&) override;
+    bool supportsDoublePrecisionProcessing() const override;
 
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override;
@@ -62,7 +64,7 @@ private:
     void initPresets();
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
 
-    float fSampleRate = 44100.0f;
+    float fSampleRate;
 
     float fRate[4] = { 5.0f, 5.0f, 5.0f, 5.0f };
     float fDepth[4] = { 0.5f, 0.5f, 0.5f, 0.5f };

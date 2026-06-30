@@ -13,6 +13,8 @@
 #include <array>
 #include <vector>
 
+constexpr float DOUBLE_PI = static_cast<float>(2.0f * M_PI);
+
 class TremoloProcess
 {
 public:
@@ -29,91 +31,82 @@ public:
 	}
 
 	// Compute phase increments for this block
-	void computePhaseIncrements(float fRate[4], float fSampleRate)
+	void computePhaseIncrements(float rate[4], float sampleRate)
 	{
-		const float fTwoPI = static_cast<float>(2.0f * M_PI);
 
 		for (int b = 0; b < 4; ++b)
-			fPhaseInc[b] = (fTwoPI * fRate[b]) / fSampleRate;
+			fPhaseInc[b] = (DOUBLE_PI * rate[b]) / sampleRate;
 	}
 
-	// Compute phase increments for this channel
-	void computeChannelPhaseIncrements(float fRate[4], float fSampleRate)
+	void sineProcess(const float phase, float& osc)
 	{
-		computePhaseIncrements(fRate, fSampleRate);
+		osc = std::sin(phase);
 	}
 
-	void sineProcess(const float fPhase, float& osc)
+	void triangleProcess(const float phase, float& osc)
 	{
-		osc = std::sin(fPhase);
+		if (0 <= phase && phase < M_PI)
+			osc = -1.0f + (2.0f / M_PI) * phase;
+		else if (M_PI <= phase && phase < 2 * M_PI)
+			osc = 3.0f - (2.0f / M_PI) * phase;
 	}
 
-	void triangleProcess(const float fPhase, float& osc)
+	void sawtoothProcess(const float phase, float& osc)
 	{
-		if (0 <= fPhase && fPhase < M_PI)
-			osc = -1.0f + (2.0f / M_PI) * fPhase;
-		else if (M_PI <= fPhase && fPhase < 2 * M_PI)
-			osc = 3.0f - (2.0f / M_PI) * fPhase;
+		osc = (phase / M_PI) - 1.0f;
 	}
 
-	void sawtoothProcess(const float fPhase, float& osc)
+	void pulseProcess(const float phase, float pulseWidth, float& osc)
 	{
-		osc = (fPhase / M_PI) - 1.0f;
-	}
+		const float p = phase;
 
-	void pulseProcess(const float fPhase, const float fTwoPI, float fPulseWidth, float& osc)
-	{
-		const float p = fPhase;
-
-		osc = (p < fPulseWidth * fTwoPI) ? 1.0f : -1.0f;
+		osc = (p < pulseWidth * DOUBLE_PI) ? 1.0f : -1.0f;
 	}
 
 
-	void squareProcess(const float fPhase, const float fTwoPI, float& osc)
+	void squareProcess(const float phase, float& osc)
 	{
-		juce::ignoreUnused(fTwoPI);
-		osc = (fPhase < M_PI) ? 1.0f : -1.0f;
+		juce::ignoreUnused(DOUBLE_PI);
+		osc = (phase < M_PI) ? 1.0f : -1.0f;
 	}
 
 	// Apply tremolo to each band
-	void processBands(int channel, float band[4], float depth[4], int choice[4], float fOffset, float fPulseWidth)
+	void processBands(int channel, float band[4], float depth[4], int choice[4], float offset, float pulseWidth)
 	{
-		const float fTwoPI = static_cast<float>(2.0f * M_PI);
-
 		for (int b = 0; b < 4; ++b)
 		{
 			fPhasePos[channel][b] += fPhaseInc[b];
-			if (fPhasePos[channel][b] > fTwoPI)
-				fPhasePos[channel][b] -= fTwoPI;
+			if (fPhasePos[channel][b] > DOUBLE_PI)
+				fPhasePos[channel][b] -= DOUBLE_PI;
 
-			float fPhase = fPhasePos[channel][b] + fOffset;
-			while (fPhase > fTwoPI)
-				fPhase -= fTwoPI;
+			float fPhase = fPhasePos[channel][b] + offset;
+			while (fPhase > DOUBLE_PI)
+				fPhase -= DOUBLE_PI;
 
-			float osc = 0.0f;
+			float fOsc = 0.0f;
 			if (choice[b] == 0)
-				sineProcess(fPhase, osc);
+				sineProcess(fPhase, fOsc);
 			else if (choice[b] == 1)
-				triangleProcess(fPhase, osc);
+				triangleProcess(fPhase, fOsc);
 			else if (choice[b] == 2)
-				sawtoothProcess(fPhase, osc);
+				sawtoothProcess(fPhase, fOsc);
 			else if (choice[b] == 3)
-				pulseProcess(fPhase, fTwoPI, fPulseWidth, osc);
+				pulseProcess(fPhase, pulseWidth, fOsc);
 			else if (choice[b] == 4)
-				squareProcess(fPhase, fTwoPI, osc);
+				squareProcess(fPhase, fOsc);
 
 
-			float trem = (osc * depth[b] * 0.5f) + 0.5f;
+			float fTrem = (fOsc * depth[b] * 0.5f) + 0.5f;
 
-			band[b] *= trem;
+			band[b] *= fTrem;
 		}
 	}
 
 	// Apply tremolo to this channel using effective values
-	void processChannelBands(int channel, float band[4], float depth[4], int choice[4], float fRate[4], float fSampleRate, float fOffset, float fPulseWidth)
+	void processChannelBands(int channel, float band[4], float depth[4], int choice[4], float rate[4], float sampleRate, float offset, float pulseWidth)
 	{
-		computeChannelPhaseIncrements(fRate, fSampleRate);
-		processBands(channel, band, depth, choice, fOffset, fPulseWidth);
+		computePhaseIncrements(rate, sampleRate);
+		processBands(channel, band, depth, choice, offset, pulseWidth);
 	}
 
 private:
