@@ -131,6 +131,64 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
         };
 
     //======================================================================
+    // Tempo sync slider switch
+    //======================================================================
+    tempoSyncLabel.setText("Tempo Sync", juce::dontSendNotification);
+    tempoSyncLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(tempoSyncLabel);
+
+    tempoSyncSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    tempoSyncSlider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
+    tempoSyncSlider.setRange(0.0, 1.0, 1.0);
+    addAndMakeVisible(tempoSyncSlider);
+
+    tempoSyncAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.apvts, "TEMPO_SYNC", tempoSyncSlider);
+
+    //======================================================================
+    // Per-band note-division menus
+    //======================================================================
+    const juce::StringArray noteDivNames{ "1/16", "1/8", "1/4", "1/2", "1/1", "2/1" };
+
+    juce::ComboBox* noteDivMenus[4] = { &subNoteDivMenu, &bassNoteDivMenu, &midNoteDivMenu, &trebleNoteDivMenu };
+    for (auto* m : noteDivMenus)
+        m->addItemList(noteDivNames, 1);
+
+    subNoteDivLabel.setText("Sub Div", juce::dontSendNotification);
+    bassNoteDivLabel.setText("Bass Div", juce::dontSendNotification);
+    midNoteDivLabel.setText("Mid Div", juce::dontSendNotification);
+    trebleNoteDivLabel.setText("Treble Div", juce::dontSendNotification);
+
+    for (auto* lbl : { &subNoteDivLabel, &bassNoteDivLabel, &midNoteDivLabel, &trebleNoteDivLabel })
+    {
+        lbl->setJustificationType(juce::Justification::centred);
+        addAndMakeVisible(lbl);
+    }
+
+    addAndMakeVisible(subNoteDivMenu);
+    addAndMakeVisible(bassNoteDivMenu);
+    addAndMakeVisible(midNoteDivMenu);
+    addAndMakeVisible(trebleNoteDivMenu);
+
+    subNoteDivAttach    = std::make_unique<MenuAttachment>(audioProcessor.apvts, "SUB_NOTE_DIV",    subNoteDivMenu);
+    bassNoteDivAttach   = std::make_unique<MenuAttachment>(audioProcessor.apvts, "BASS_NOTE_DIV",   bassNoteDivMenu);
+    midNoteDivAttach    = std::make_unique<MenuAttachment>(audioProcessor.apvts, "MID_NOTE_DIV",    midNoteDivMenu);
+    trebleNoteDivAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "TREBLE_NOTE_DIV", trebleNoteDivMenu);
+
+    // Enable/disable note-division menus based on tempo sync state
+    auto updateNoteDivState = [this]()
+        {
+            bool bSync = tempoSyncSlider.getValue() > 0.5;
+            for (auto* m : { &subNoteDivMenu, &bassNoteDivMenu, &midNoteDivMenu, &trebleNoteDivMenu })
+                m->setEnabled(bSync);
+            for (auto* lbl : { &subNoteDivLabel, &bassNoteDivLabel, &midNoteDivLabel, &trebleNoteDivLabel })
+                lbl->setEnabled(bSync);
+        };
+
+    tempoSyncSlider.onValueChange = [updateNoteDivState]() { updateNoteDivState(); };
+    updateNoteDivState();
+
+    //======================================================================
     // Disable channel spread controls in mono
     //======================================================================
     bool bEnableChannelSpread = audioProcessor.getTotalNumOutputChannels() > 1;
@@ -282,4 +340,27 @@ void AutoTremolandoAudioProcessorEditor::resized()
 
     trebleTremLabel.setBounds(menuX, menuY, menuW, labelH);
     trebleTremMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
+    menuY += labelH + menuH + 16;
+
+    //==============================================================
+    // Tempo sync switch + note-division menus (right column, below tremolo types)
+    //==============================================================
+    tempoSyncLabel.setBounds(menuX, menuY, menuW, labelH);
+    tempoSyncSlider.setBounds(menuX, menuY + labelH, menuW, menuH);
+    menuY += labelH + menuH + 8;
+
+    subNoteDivLabel.setBounds(menuX, menuY, menuW, labelH);
+    subNoteDivMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
+    menuY += labelH + menuH + 8;
+
+    bassNoteDivLabel.setBounds(menuX, menuY, menuW, labelH);
+    bassNoteDivMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
+    menuY += labelH + menuH + 8;
+
+    midNoteDivLabel.setBounds(menuX, menuY, menuW, labelH);
+    midNoteDivMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
+    menuY += labelH + menuH + 8;
+
+    trebleNoteDivLabel.setBounds(menuX, menuY, menuW, labelH);
+    trebleNoteDivMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
 }

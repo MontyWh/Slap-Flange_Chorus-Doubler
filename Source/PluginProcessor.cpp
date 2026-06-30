@@ -72,6 +72,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout AutoTremolandoAudioProcessor
     // Bypass
     params.push_back(std::make_unique<juce::AudioParameterBool>("BYPASS", "Bypass", false));
 
+    // Tempo sync
+    params.push_back(std::make_unique<juce::AudioParameterBool>("TEMPO_SYNC", "Tempo Sync", false));
+
+    juce::StringArray noteDivOptions = { "1/16", "1/8", "1/4", "1/2", "1/1", "2/1" };
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("SUB_NOTE_DIV",    "Sub Note Div",    noteDivOptions, 2));
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("BASS_NOTE_DIV",   "Bass Note Div",   noteDivOptions, 2));
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("MID_NOTE_DIV",    "Mid Note Div",    noteDivOptions, 2));
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("TREBLE_NOTE_DIV", "Treble Note Div", noteDivOptions, 2));
+
     return { params.begin(), params.end() };
 }
 
@@ -257,57 +266,82 @@ bool AutoTremolandoAudioProcessor::isBusesLayoutSupported(const BusesLayout& lay
 //==============================================================================
 void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
-	juce::ScopedNoDenormals noDenormals;
-	auto totalNumInputChannels = getTotalNumInputChannels();
-	auto numSamples = buffer.getNumSamples();
+    juce::ScopedNoDenormals noDenormals;
+    auto totalNumInputChannels = getTotalNumInputChannels();
+    auto numSamples = buffer.getNumSamples();
 
-	bool bBypass = *apvts.getRawParameterValue("BYPASS") > 0.5f;
-	if (bBypass)
-		return;
+    bool bBypass = *apvts.getRawParameterValue("BYPASS") > 0.5f;
+    if (bBypass)
+        return;
 
-	float fInGain = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
-	float fOutGain = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
-	float fWetDryControl = std::pow(*apvts.getRawParameterValue("WET"), 3.0f);
-	float fPresence = *apvts.getRawParameterValue("PRESENCE");
+    float fInGain = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
+    float fOutGain = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
+    float fWetDryControl = std::pow(*apvts.getRawParameterValue("WET"), 3.0f);
+    float fPresence = *apvts.getRawParameterValue("PRESENCE");
 
-	fRate[0] = *apvts.getRawParameterValue("SUB_TREM_RATE");
-	fRate[1] = *apvts.getRawParameterValue("BASS_TREM_RATE");
-	fRate[2] = *apvts.getRawParameterValue("MID_TREM_RATE");
-	fRate[3] = *apvts.getRawParameterValue("TREBLE_TREM_RATE");
+    fRate[0] = *apvts.getRawParameterValue("SUB_TREM_RATE");
+fRate[1] = *apvts.getRawParameterValue("BASS_TREM_RATE");
+fRate[2] = *apvts.getRawParameterValue("MID_TREM_RATE");
+fRate[3] = *apvts.getRawParameterValue("TREBLE_TREM_RATE");
 
-	float fMasterRate = *apvts.getRawParameterValue("MASTER_RATE");
-	for (int b = 0; b < 4; ++b)
-		fRate[b] *= fMasterRate;
+float fMasterRate = *apvts.getRawParameterValue("MASTER_RATE");
 
-	fDepth[0] = *apvts.getRawParameterValue("SUB_TREM_DEPTH");
-	fDepth[1] = *apvts.getRawParameterValue("BASS_TREM_DEPTH");
-	fDepth[2] = *apvts.getRawParameterValue("MID_TREM_DEPTH");
-	fDepth[3] = *apvts.getRawParameterValue("TREBLE_TREM_DEPTH");
-
-	float fPhaseOffsetDegrees = *apvts.getRawParameterValue("PHASE_OFFSET");
-	float fPhaseOffsetRadians = juce::degreesToRadians(fPhaseOffsetDegrees);
-	float fRateOffset = *apvts.getRawParameterValue("RATE_OFFSET");
-	float fDepthOffset = *apvts.getRawParameterValue("DEPTH_OFFSET");
-	float fPulseWidth = *apvts.getRawParameterValue("PULSE_WIDTH");
-
-	if (totalNumInputChannels <= 1)
+const bool bTempoSync = *apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
+if (bTempoSync)
+{
+	if (auto* ph = getPlayHead())
 	{
-		if (!fPhaseOffset.empty())
-			fPhaseOffset[0] = 0.0f;
+		if (auto pos = ph->getPosition())
+		{
+			if (auto optBpm = pos->getBpm())
+			{
+				const float noteDivMultipliers[] = { 4.0f, 2.0f, 1.0f, 0.5f, 0.25f, 0.125f };
+				const int divIdx[4] = {
+					juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
+					juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
+					juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
+					juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
+				};
+				const float fBeatsPerSec = static_cast<float>(*optBpm) / 60.0f;
+				for (int b = 0; b < 4; ++b)
+					fRate[b] = fBeatsPerSec * noteDivMultipliers[divIdx[b]];
+			}
+		}
 	}
-	else if (totalNumInputChannels == 2)
-	{
+}
+
+for (int b = 0; b < 4; ++b)
+	fRate[b] = juce::jlimit(1.0f, 15.0f, fRate[b] * fMasterRate);
+
+fDepth[0] = *apvts.getRawParameterValue("SUB_TREM_DEPTH");
+fDepth[1] = *apvts.getRawParameterValue("BASS_TREM_DEPTH");
+fDepth[2] = *apvts.getRawParameterValue("MID_TREM_DEPTH");
+fDepth[3] = *apvts.getRawParameterValue("TREBLE_TREM_DEPTH");
+
+float fPhaseOffsetDegrees = *apvts.getRawParameterValue("PHASE_OFFSET");
+float fPhaseOffsetRadians = juce::degreesToRadians(fPhaseOffsetDegrees);
+float fRateOffset = *apvts.getRawParameterValue("RATE_OFFSET");
+float fDepthOffset = *apvts.getRawParameterValue("DEPTH_OFFSET");
+float fPulseWidth = *apvts.getRawParameterValue("PULSE_WIDTH");
+
+if (totalNumInputChannels <= 1)
+{
+	if (!fPhaseOffset.empty())
 		fPhaseOffset[0] = 0.0f;
-		fPhaseOffset[1] = fPhaseOffsetRadians;
-	}
-	else
-	{
-		for (int channel = 0; channel < totalNumInputChannels; ++channel)
-			fPhaseOffset[channel] = fPhaseOffsetRadians * ((float)channel / (float)(totalNumInputChannels - 1));
-	}
+}
+else if (totalNumInputChannels == 2)
+{
+	fPhaseOffset[0] = 0.0f;
+	fPhaseOffset[1] = fPhaseOffsetRadians;
+}
+else
+{
+	for (int channel = 0; channel < totalNumInputChannels; ++channel)
+		fPhaseOffset[channel] = fPhaseOffsetRadians * ((float)channel / (float)(totalNumInputChannels - 1));
+}
 
-	float presenceFreq = fPresence * 19000.0f + 1000.0f;
-	auto resonanceCoeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, presenceFreq, 1.41f, 1.41f);
+float presenceFreq = fPresence * 19000.0f + 1000.0f;
+auto resonanceCoeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, presenceFreq, 1.41f, 1.41f);
 
 	auto subCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 60.0f);
 	auto bassLCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 250.0f);
@@ -399,8 +433,33 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<double>& buffe
 	fRate[3] = *apvts.getRawParameterValue("TREBLE_TREM_RATE");
 
 	float fMasterRate = *apvts.getRawParameterValue("MASTER_RATE");
+
+	const bool bTempoSync = *apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
+	if (bTempoSync)
+	{
+		if (auto* ph = getPlayHead())
+		{
+			if (auto pos = ph->getPosition())
+			{
+				if (auto optBpm = pos->getBpm())
+				{
+					const float noteDivMultipliers[] = { 4.0f, 2.0f, 1.0f, 0.5f, 0.25f, 0.125f };
+					const int divIdx[4] = {
+						juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
+						juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
+						juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
+						juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
+					};
+					const float fBeatsPerSec = static_cast<float>(*optBpm) / 60.0f;
+					for (int b = 0; b < 4; ++b)
+						fRate[b] = fBeatsPerSec * noteDivMultipliers[divIdx[b]];
+				}
+			}
+		}
+	}
+
 	for (int b = 0; b < 4; ++b)
-		fRate[b] *= fMasterRate;
+		fRate[b] = juce::jlimit(1.0f, 15.0f, fRate[b] * fMasterRate);
 
 	fDepth[0] = *apvts.getRawParameterValue("SUB_TREM_DEPTH");
 	fDepth[1] = *apvts.getRawParameterValue("BASS_TREM_DEPTH");
