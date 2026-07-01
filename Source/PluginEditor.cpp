@@ -142,22 +142,13 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
 
     tempoSyncSlider.onClick = [this]()
         {
-            bool bCurrentSync = *audioProcessor.apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
-            bool bNewSync = !bCurrentSync;
+            bool bCurrentSyncState = *audioProcessor.apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
+            bool bNewSync = !bCurrentSyncState;
             if (auto* param = audioProcessor.apvts.getParameter("TEMPO_SYNC"))
                 param->setValueNotifyingHost(bNewSync ? 1.0f : 0.0f);
+
+            bCurrentSync = bNewSync;  // Update member variable
             tempoSyncSlider.setButtonText(bNewSync ? "TEMPO" : "TIME");
-
-            // Update division menus with appropriate options
-            const juce::StringArray tempoOptions{ "1/16", "1/8", "1/4", "1/2", "1/1", "2/1" };
-            const juce::StringArray timeOptions{ "62ms", "125ms", "250ms", "500ms", "1s", "2s" };
-
-            for (auto* m : { &subNoteDivMenu, &bassNoteDivMenu, &midNoteDivMenu, &trebleNoteDivMenu })
-            {
-                m->clear(juce::dontSendNotification);
-                m->addItemList(bNewSync ? tempoOptions : timeOptions, 1);
-                m->setSelectedItemIndex(0, juce::dontSendNotification);
-            }
 
             // Update labels based on sync mode
             if (bNewSync)
@@ -174,58 +165,132 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
                 midNoteDivLabel.setText("Mid Time", juce::dontSendNotification);
                 trebleNoteDivLabel.setText("Treble Time", juce::dontSendNotification);
             }
+
+            // Update value labels to reflect new interpretation
+            auto updateLabel = [bNewSync](juce::Slider& slider, juce::Label& valueLabel)
+                {
+                    int idx = juce::roundToInt(slider.getValue());
+                    if (bNewSync)
+                    {
+                        const juce::String tempoLabels[] = { 
+                            // 1/16
+                            "1/16", "1/16t", "1/16d", "1/16 swing", "1/16 shuffle",
+                            // 1/8
+                            "1/8", "1/8t", "1/8d", "1/8 swing", "1/8 shuffle",
+                            // 1/4
+                            "1/4", "1/4t", "1/4d", "1/4 swing", "1/4 shuffle",
+                            // 1/2
+                            "1/2", "1/2t", "1/2d", "1/2 swing", "1/2 shuffle",
+                            // 1/1
+                            "1/1", "1/1t", "1/1d", "1/1 swing", "1/1 shuffle",
+                            // 2/1
+                            "2/1", "2/1t", "2/1d", "2/1 swing", "2/1 shuffle"
+                        };
+                        valueLabel.setText(tempoLabels[idx], juce::dontSendNotification);
+                    }
+                    else
+                    {
+                        float fHz = 0.5f + (idx / 29.0f) * 15.5f;
+                        valueLabel.setText(juce::String(fHz, 2) + " Hz", juce::dontSendNotification);
+                    }
+                };
+
+            updateLabel(subNoteDivSlider, subNoteDivValueLabel);
+            updateLabel(bassNoteDivSlider, bassNoteDivValueLabel);
+            updateLabel(midNoteDivSlider, midNoteDivValueLabel);
+            updateLabel(trebleNoteDivSlider, trebleNoteDivValueLabel);
         };
 
     //======================================================================
-    // Division menus (note divisions for Tempo, time values for Time-based)
+    // Division rotary sliders (note divisions for Tempo, time values for Time-based)
     //======================================================================
-    const juce::StringArray tempoOptions{ "1/16", "1/8", "1/4", "1/2", "1/1", "2/1" };
-    const juce::StringArray timeOptions{ "62ms", "125ms", "250ms", "500ms", "1s", "2s" };
+    auto setupDivisionSlider = [this](juce::Slider& slider, juce::Label& label, juce::Label& valueLabel, const juce::String& paramID)
+        {
+            slider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
+            slider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
+            slider.setRange(0.0, 11.0, 1.0);
+            slider.setColour(juce::Slider::rotarySliderFillColourId, juce::Colours::cyan);
+            addAndMakeVisible(slider);
 
-    juce::ComboBox* noteDivMenus[4] = { &subNoteDivMenu, &bassNoteDivMenu, &midNoteDivMenu, &trebleNoteDivMenu };
-    for (auto* m : noteDivMenus)
-        m->addItemList(tempoOptions, 1);
+            label.setJustificationType(juce::Justification::centred);
+            addAndMakeVisible(label);
 
+            valueLabel.setJustificationType(juce::Justification::centred);
+            addAndMakeVisible(valueLabel);
+        };
+
+    setupDivisionSlider(subNoteDivSlider, subNoteDivLabel, subNoteDivValueLabel, "SUB_NOTE_DIV");
+    setupDivisionSlider(bassNoteDivSlider, bassNoteDivLabel, bassNoteDivValueLabel, "BASS_NOTE_DIV");
+    setupDivisionSlider(midNoteDivSlider, midNoteDivLabel, midNoteDivValueLabel, "MID_NOTE_DIV");
+    setupDivisionSlider(trebleNoteDivSlider, trebleNoteDivLabel, trebleNoteDivValueLabel, "TREBLE_NOTE_DIV");
+
+    subNoteDivAttach    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "SUB_NOTE_DIV",    subNoteDivSlider);
+    bassNoteDivAttach   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "BASS_NOTE_DIV",   bassNoteDivSlider);
+    midNoteDivAttach    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "MID_NOTE_DIV",    midNoteDivSlider);
+    trebleNoteDivAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "TREBLE_NOTE_DIV", trebleNoteDivSlider);
+
+    // Lambda to update value labels based on sync mode
+    auto updateDivisionLabels = [this]()
+        {
+            auto updateLabel = [this](juce::Slider& slider, juce::Label& valueLabel)
+                {
+                    int idx = juce::roundToInt(slider.getValue());
+                    if (bCurrentSync)
+                    {
+                        // Tempo mode: note divisions interleaved by note value
+                        // Each note value: straight, triplet, dotted, swing, shuffle
+                        const juce::String tempoLabels[] = { 
+                            // 1/16
+                            "1/16", "1/16t", "1/16d", "1/16 swing", "1/16 shuffle",
+                            // 1/8
+                            "1/8", "1/8t", "1/8d", "1/8 swing", "1/8 shuffle",
+                            // 1/4
+                            "1/4", "1/4t", "1/4d", "1/4 swing", "1/4 shuffle",
+                            // 1/2
+                            "1/2", "1/2t", "1/2d", "1/2 swing", "1/2 shuffle",
+                            // 1/1
+                            "1/1", "1/1t", "1/1d", "1/1 swing", "1/1 shuffle",
+                            // 2/1
+                            "2/1", "2/1t", "2/1d", "2/1 swing", "2/1 shuffle"
+                        };
+                        valueLabel.setText(tempoLabels[idx], juce::dontSendNotification);
+                    }
+                    else
+                    {
+                        // Time mode: Hz (mapped from 0.5 Hz to 16 Hz)
+                        float fHz = 0.5f + (idx / 29.0f) * 15.5f;
+                        valueLabel.setText(juce::String(fHz, 2) + " Hz", juce::dontSendNotification);
+                    }
+                };
+
+            updateLabel(subNoteDivSlider, subNoteDivValueLabel);
+            updateLabel(bassNoteDivSlider, bassNoteDivValueLabel);
+            updateLabel(midNoteDivSlider, midNoteDivValueLabel);
+            updateLabel(trebleNoteDivSlider, trebleNoteDivValueLabel);
+        };
+
+    // Update labels initially
     subNoteDivLabel.setText("Sub Div", juce::dontSendNotification);
     bassNoteDivLabel.setText("Bass Div", juce::dontSendNotification);
     midNoteDivLabel.setText("Mid Div", juce::dontSendNotification);
     trebleNoteDivLabel.setText("Treble Div", juce::dontSendNotification);
+    updateDivisionLabels();
 
-    for (auto* lbl : { &subNoteDivLabel, &bassNoteDivLabel, &midNoteDivLabel, &trebleNoteDivLabel })
-    {
-        lbl->setJustificationType(juce::Justification::centred);
-        addAndMakeVisible(lbl);
-    }
+    // Add slider value change listeners
+    auto makeSliderListener = [updateDivisionLabels](juce::Slider& slider)
+        {
+            slider.onValueChange = [updateDivisionLabels]() { updateDivisionLabels(); };
+        };
 
-    addAndMakeVisible(subNoteDivMenu);
-    addAndMakeVisible(bassNoteDivMenu);
-    addAndMakeVisible(midNoteDivMenu);
-    addAndMakeVisible(trebleNoteDivMenu);
-
-    subNoteDivAttach    = std::make_unique<MenuAttachment>(audioProcessor.apvts, "SUB_NOTE_DIV",    subNoteDivMenu);
-    bassNoteDivAttach   = std::make_unique<MenuAttachment>(audioProcessor.apvts, "BASS_NOTE_DIV",   bassNoteDivMenu);
-    midNoteDivAttach    = std::make_unique<MenuAttachment>(audioProcessor.apvts, "MID_NOTE_DIV",    midNoteDivMenu);
-    trebleNoteDivAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "TREBLE_NOTE_DIV", trebleNoteDivMenu);
+    makeSliderListener(subNoteDivSlider);
+    makeSliderListener(bassNoteDivSlider);
+    makeSliderListener(midNoteDivSlider);
+    makeSliderListener(trebleNoteDivSlider);
 
     // Initialize division menus and labels based on current sync mode
-    bool bInitialSync = *audioProcessor.apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
+    bCurrentSync = *audioProcessor.apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
 
-    for (auto* m : { &subNoteDivMenu, &bassNoteDivMenu, &midNoteDivMenu, &trebleNoteDivMenu })
-    {
-        m->clear(juce::dontSendNotification);
-        m->addItemList(bInitialSync ? juce::StringArray{ "1/16", "1/8", "1/4", "1/2", "1/1", "2/1" } 
-                                     : juce::StringArray{ "62ms", "125ms", "250ms", "500ms", "1s", "2s" }, 1);
-        m->setSelectedItemIndex(0, juce::dontSendNotification);
-    }
-
-    if (bInitialSync)
-    {
-        subNoteDivLabel.setText("Sub Div", juce::dontSendNotification);
-        bassNoteDivLabel.setText("Bass Div", juce::dontSendNotification);
-        midNoteDivLabel.setText("Mid Div", juce::dontSendNotification);
-        trebleNoteDivLabel.setText("Treble Div", juce::dontSendNotification);
-    }
-    else
+    if (!bCurrentSync)
     {
         subNoteDivLabel.setText("Sub Time", juce::dontSendNotification);
         bassNoteDivLabel.setText("Bass Time", juce::dontSendNotification);
@@ -393,24 +458,29 @@ void AutoTremolandoAudioProcessorEditor::resized()
     int tempoX = menuX + menuW + colGap;
     int tempoY = 60;
     int tempoColW = 130;
+    int sliderSize = 60;  // Rotary slider diameter
 
     tempoSyncLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
     tempoSyncSlider.setBounds(tempoX, tempoY + labelH, tempoColW, menuH);
     tempoY += labelH + menuH + 16;
 
-    // Per-band note-division menus, arranged vertically in the right column
+    // Per-band note-division rotary sliders with value displays
     subNoteDivLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
-    subNoteDivMenu.setBounds(tempoX, tempoY + labelH, tempoColW, menuH);
-    tempoY += labelH + menuH + 8;
+    subNoteDivSlider.setBounds(tempoX + (tempoColW - sliderSize) / 2, tempoY + labelH, sliderSize, sliderSize);
+    subNoteDivValueLabel.setBounds(tempoX, tempoY + labelH + sliderSize, tempoColW, labelH);
+    tempoY += labelH + sliderSize + labelH + 16;
 
     bassNoteDivLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
-    bassNoteDivMenu.setBounds(tempoX, tempoY + labelH, tempoColW, menuH);
-    tempoY += labelH + menuH + 8;
+    bassNoteDivSlider.setBounds(tempoX + (tempoColW - sliderSize) / 2, tempoY + labelH, sliderSize, sliderSize);
+    bassNoteDivValueLabel.setBounds(tempoX, tempoY + labelH + sliderSize, tempoColW, labelH);
+    tempoY += labelH + sliderSize + labelH + 16;
 
     midNoteDivLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
-    midNoteDivMenu.setBounds(tempoX, tempoY + labelH, tempoColW, menuH);
-    tempoY += labelH + menuH + 8;
+    midNoteDivSlider.setBounds(tempoX + (tempoColW - sliderSize) / 2, tempoY + labelH, sliderSize, sliderSize);
+    midNoteDivValueLabel.setBounds(tempoX, tempoY + labelH + sliderSize, tempoColW, labelH);
+    tempoY += labelH + sliderSize + labelH + 16;
 
     trebleNoteDivLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
-    trebleNoteDivMenu.setBounds(tempoX, tempoY + labelH, tempoColW, menuH);
+    trebleNoteDivSlider.setBounds(tempoX + (tempoColW - sliderSize) / 2, tempoY + labelH, sliderSize, sliderSize);
+    trebleNoteDivValueLabel.setBounds(tempoX, tempoY + labelH + sliderSize, tempoColW, labelH);
 }

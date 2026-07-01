@@ -50,11 +50,14 @@ private:
     // Sync mode switch (Time vs Tempo)
     juce::TextButton tempoSyncSlider;
     juce::Label tempoSyncLabel;
+    bool bCurrentSync = true;  // Track sync state for label updates
 
-    // Per-band note-division menus (active in Tempo Sync mode)
-    juce::ComboBox subNoteDivMenu, bassNoteDivMenu, midNoteDivMenu, trebleNoteDivMenu;
-    juce::Label subNoteDivLabel, bassNoteDivLabel, midNoteDivLabel, trebleNoteDivLabel;
-    std::unique_ptr<MenuAttachment> subNoteDivAttach, bassNoteDivAttach, midNoteDivAttach, trebleNoteDivAttach;
+    // Per-band note-division/time rotary sliders (active in both modes)
+    juce::Slider subNoteDivSlider, bassNoteDivSlider, midNoteDivSlider, trebleNoteDivSlider;
+    juce::Label subNoteDivLabel, subNoteDivValueLabel, bassNoteDivLabel, bassNoteDivValueLabel,
+                midNoteDivLabel, midNoteDivValueLabel, trebleNoteDivLabel, trebleNoteDivValueLabel;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> 
+        subNoteDivAttach, bassNoteDivAttach, midNoteDivAttach, trebleNoteDivAttach;
 
     AutoTremolandoAudioProcessor& audioProcessor;
 

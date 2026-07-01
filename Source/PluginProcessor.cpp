@@ -75,11 +75,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout AutoTremolandoAudioProcessor
     // Tempo sync
     params.push_back(std::make_unique<juce::AudioParameterBool>("TEMPO_SYNC", "Tempo Sync", false));
 
-    juce::StringArray noteDivOptions = { "1/16", "1/8", "1/4", "1/2", "1/1", "2/1" };
-    params.push_back(std::make_unique<juce::AudioParameterChoice>("SUB_NOTE_DIV",    "Sub Note Div",    noteDivOptions, 2));
-    params.push_back(std::make_unique<juce::AudioParameterChoice>("BASS_NOTE_DIV",   "Bass Note Div",   noteDivOptions, 2));
-    params.push_back(std::make_unique<juce::AudioParameterChoice>("MID_NOTE_DIV",    "Mid Note Div",    noteDivOptions, 2));
-    params.push_back(std::make_unique<juce::AudioParameterChoice>("TREBLE_NOTE_DIV", "Treble Note Div", noteDivOptions, 2));
+    // Note division / time sliders: 0–29 range supports 30 positions
+    // Tempo mode: Straight (6) + Triplet (6) + Dotted (6) + Swing (6) + Shuffle (6)
+    // Time mode: 0.5 Hz to 16 Hz (2s to 62ms)
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("SUB_NOTE_DIV",    "Sub Note Div",    0.0f, 29.0f, 4.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("BASS_NOTE_DIV",   "Bass Note Div",   0.0f, 29.0f, 4.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("MID_NOTE_DIV",    "Mid Note Div",    0.0f, 29.0f, 4.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("TREBLE_NOTE_DIV", "Treble Note Div", 0.0f, 29.0f, 4.0f));
 
     return { params.begin(), params.end() };
 }
@@ -266,20 +268,20 @@ bool AutoTremolandoAudioProcessor::isBusesLayoutSupported(const BusesLayout& lay
 //==============================================================================
 void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
-    juce::ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels = getTotalNumInputChannels();
-    auto numSamples = buffer.getNumSamples();
+	juce::ScopedNoDenormals noDenormals;
+	auto totalNumInputChannels = getTotalNumInputChannels();
+	auto numSamples = buffer.getNumSamples();
 
-    bool bBypass = *apvts.getRawParameterValue("BYPASS") > 0.5f;
-    if (bBypass)
-        return;
+	bool bBypass = *apvts.getRawParameterValue("BYPASS") > 0.5f;
+	if (bBypass)
+		return;
 
-    float fInGain = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
-    float fOutGain = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
-    float fWetDryControl = std::pow(*apvts.getRawParameterValue("WET"), 3.0f);
-    float fPresence = *apvts.getRawParameterValue("PRESENCE");
+	float fInGain = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
+	float fOutGain = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
+	float fWetDryControl = std::pow(*apvts.getRawParameterValue("WET"), 3.0f);
+	float fPresence = *apvts.getRawParameterValue("PRESENCE");
 
-    fRate[0] = *apvts.getRawParameterValue("SUB_TREM_RATE");
+	fRate[0] = *apvts.getRawParameterValue("SUB_TREM_RATE");
 fRate[1] = *apvts.getRawParameterValue("BASS_TREM_RATE");
 fRate[2] = *apvts.getRawParameterValue("MID_TREM_RATE");
 fRate[3] = *apvts.getRawParameterValue("TREBLE_TREM_RATE");
@@ -295,33 +297,51 @@ if (bTempoSync)
 		{
 			if (auto optBpm = pos->getBpm())
 			{
-				const float noteDivMultipliers[] = { 4.0f, 2.0f, 1.0f, 0.5f, 0.25f, 0.125f };
+				// Tempo mode: 30 divisions (interleaved by note value)
+				// 1/16: straight, triplet, dotted, swing, shuffle
+				// 1/8:  straight, triplet, dotted, swing, shuffle
+				// 1/4:  straight, triplet, dotted, swing, shuffle
+				// 1/2:  straight, triplet, dotted, swing, shuffle
+				// 1/1:  straight, triplet, dotted, swing, shuffle
+				// 2/1:  straight, triplet, dotted, swing, shuffle
+				const float tempoMultipliers[] = { 
+					// 1/16: straight, triplet, dotted, swing, shuffle
+					4.0f, 3.0f, 6.0f, 4.8f, 5.33f,
+					// 1/8: straight, triplet, dotted, swing, shuffle
+					2.0f, 1.5f, 3.0f, 2.4f, 2.67f,
+					// 1/4: straight, triplet, dotted, swing, shuffle
+					1.0f, 0.75f, 1.5f, 1.2f, 1.33f,
+					// 1/2: straight, triplet, dotted, swing, shuffle
+					0.5f, 0.375f, 0.75f, 0.6f, 0.67f,
+					// 1/1: straight, triplet, dotted, swing, shuffle
+					0.25f, 0.1875f, 0.375f, 0.3f, 0.33f,
+					// 2/1: straight, triplet, dotted, swing, shuffle
+					0.125f, 0.09375f, 0.1875f, 0.15f, 0.167f
+				};
 				const int divIdx[4] = {
-					juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
-					juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
-					juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
-					juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
+					juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
+					juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
+					juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
+					juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
 				};
 				const float fBeatsPerSec = static_cast<float>(*optBpm) / 60.0f;
 				for (int b = 0; b < 4; ++b)
-					fRate[b] = fBeatsPerSec * noteDivMultipliers[divIdx[b]];
+					fRate[b] = fBeatsPerSec * tempoMultipliers[divIdx[b]];
 			}
 		}
 	}
 }
 else
 {
-	// Time-based sync: convert time value selections to rates in Hz
-	// Options: 62ms, 125ms, 250ms, 500ms, 1s, 2s
-	const float timeValueHz[] = { 1.0f / 0.062f, 1.0f / 0.125f, 1.0f / 0.250f, 1.0f / 0.500f, 1.0f / 1.0f, 1.0f / 2.0f };
+	// Time-based sync: convert slider position (0–29) to Hz (0.5–16 Hz)
 	const int divIdx[4] = {
-		juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
-		juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
-		juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
-		juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
+		juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
+		juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
+		juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
+		juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
 	};
 	for (int b = 0; b < 4; ++b)
-		fRate[b] = timeValueHz[divIdx[b]];
+		fRate[b] = 0.5f + (divIdx[b] / 29.0f) * 15.5f;  // Maps 0–29 to 0.5–16 Hz
 }
 
 for (int b = 0; b < 4; ++b)
@@ -457,33 +477,51 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<double>& buffe
 			{
 				if (auto optBpm = pos->getBpm())
 				{
-					const float noteDivMultipliers[] = { 4.0f, 2.0f, 1.0f, 0.5f, 0.25f, 0.125f };
+					// Tempo mode: 30 divisions (interleaved by note value)
+					// 1/16: straight, triplet, dotted, swing, shuffle
+					// 1/8:  straight, triplet, dotted, swing, shuffle
+					// 1/4:  straight, triplet, dotted, swing, shuffle
+					// 1/2:  straight, triplet, dotted, swing, shuffle
+					// 1/1:  straight, triplet, dotted, swing, shuffle
+					// 2/1:  straight, triplet, dotted, swing, shuffle
+					const float tempoMultipliers[] = { 
+						// 1/16: straight, triplet, dotted, swing, shuffle
+						4.0f, 3.0f, 6.0f, 4.8f, 5.33f,
+						// 1/8: straight, triplet, dotted, swing, shuffle
+						2.0f, 1.5f, 3.0f, 2.4f, 2.67f,
+						// 1/4: straight, triplet, dotted, swing, shuffle
+						1.0f, 0.75f, 1.5f, 1.2f, 1.33f,
+						// 1/2: straight, triplet, dotted, swing, shuffle
+						0.5f, 0.375f, 0.75f, 0.6f, 0.67f,
+						// 1/1: straight, triplet, dotted, swing, shuffle
+						0.25f, 0.1875f, 0.375f, 0.3f, 0.33f,
+						// 2/1: straight, triplet, dotted, swing, shuffle
+						0.125f, 0.09375f, 0.1875f, 0.15f, 0.167f
+					};
 					const int divIdx[4] = {
-						juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
-						juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
-						juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
-						juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
+						juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
+						juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
+						juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
+						juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
 					};
 					const float fBeatsPerSec = static_cast<float>(*optBpm) / 60.0f;
 					for (int b = 0; b < 4; ++b)
-						fRate[b] = fBeatsPerSec * noteDivMultipliers[divIdx[b]];
+						fRate[b] = fBeatsPerSec * tempoMultipliers[divIdx[b]];
 				}
 			}
 		}
 	}
 	else
 	{
-		// Time-based sync: convert time value selections to rates in Hz
-		// Options: 62ms, 125ms, 250ms, 500ms, 1s, 2s
-		const float timeValueHz[] = { 1.0f / 0.062f, 1.0f / 0.125f, 1.0f / 0.250f, 1.0f / 0.500f, 1.0f / 1.0f, 1.0f / 2.0f };
+		// Time-based sync: convert slider position (0–29) to Hz (0.5–16 Hz)
 		const int divIdx[4] = {
-			juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
-			juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
-			juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
-			juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
+			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
+			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
+			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
+			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
 		};
 		for (int b = 0; b < 4; ++b)
-			fRate[b] = timeValueHz[divIdx[b]];
+			fRate[b] = 0.5f + (divIdx[b] / 29.0f) * 15.5f;  // Maps 0–29 to 0.5–16 Hz
 	}
 
 	for (int b = 0; b < 4; ++b)
