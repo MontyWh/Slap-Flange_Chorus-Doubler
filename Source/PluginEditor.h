@@ -47,12 +47,11 @@ private:
     juce::TextButton bypassButton;
     juce::Label bypassLabel;
 
-    // Tempo sync slider switch (0 = time-based, 1 = tempo-based)
-    juce::Slider tempoSyncSlider;
+    // Sync mode switch (Time vs Tempo)
+    juce::TextButton tempoSyncSlider;
     juce::Label tempoSyncLabel;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> tempoSyncAttach;
 
-    // Per-band note-division menus (active in tempo-sync mode)
+    // Per-band note-division menus (active in Tempo Sync mode)
     juce::ComboBox subNoteDivMenu, bassNoteDivMenu, midNoteDivMenu, trebleNoteDivMenu;
     juce::Label subNoteDivLabel, bassNoteDivLabel, midNoteDivLabel, trebleNoteDivLabel;
     std::unique_ptr<MenuAttachment> subNoteDivAttach, bassNoteDivAttach, midNoteDivAttach, trebleNoteDivAttach;

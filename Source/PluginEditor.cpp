@@ -131,28 +131,60 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
         };
 
     //======================================================================
-    // Tempo sync slider switch
+    // Sync mode: Time vs Tempo
     //======================================================================
-    tempoSyncLabel.setText("Tempo Sync", juce::dontSendNotification);
+    tempoSyncLabel.setText("Sync Mode", juce::dontSendNotification);
     tempoSyncLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(tempoSyncLabel);
 
-    tempoSyncSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    tempoSyncSlider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
-    tempoSyncSlider.setRange(0.0, 1.0, 1.0);
+    tempoSyncSlider.setButtonText("TIME");
     addAndMakeVisible(tempoSyncSlider);
 
-    tempoSyncAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.apvts, "TEMPO_SYNC", tempoSyncSlider);
+    tempoSyncSlider.onClick = [this]()
+        {
+            bool bCurrentSync = *audioProcessor.apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
+            bool bNewSync = !bCurrentSync;
+            if (auto* param = audioProcessor.apvts.getParameter("TEMPO_SYNC"))
+                param->setValueNotifyingHost(bNewSync ? 1.0f : 0.0f);
+            tempoSyncSlider.setButtonText(bNewSync ? "TEMPO" : "TIME");
+
+            // Update division menus with appropriate options
+            const juce::StringArray tempoOptions{ "1/16", "1/8", "1/4", "1/2", "1/1", "2/1" };
+            const juce::StringArray timeOptions{ "62ms", "125ms", "250ms", "500ms", "1s", "2s" };
+
+            for (auto* m : { &subNoteDivMenu, &bassNoteDivMenu, &midNoteDivMenu, &trebleNoteDivMenu })
+            {
+                m->clear(juce::dontSendNotification);
+                m->addItemList(bNewSync ? tempoOptions : timeOptions, 1);
+                m->setSelectedItemIndex(0, juce::dontSendNotification);
+            }
+
+            // Update labels based on sync mode
+            if (bNewSync)
+            {
+                subNoteDivLabel.setText("Sub Div", juce::dontSendNotification);
+                bassNoteDivLabel.setText("Bass Div", juce::dontSendNotification);
+                midNoteDivLabel.setText("Mid Div", juce::dontSendNotification);
+                trebleNoteDivLabel.setText("Treble Div", juce::dontSendNotification);
+            }
+            else
+            {
+                subNoteDivLabel.setText("Sub Time", juce::dontSendNotification);
+                bassNoteDivLabel.setText("Bass Time", juce::dontSendNotification);
+                midNoteDivLabel.setText("Mid Time", juce::dontSendNotification);
+                trebleNoteDivLabel.setText("Treble Time", juce::dontSendNotification);
+            }
+        };
 
     //======================================================================
-    // Per-band note-division menus
+    // Division menus (note divisions for Tempo, time values for Time-based)
     //======================================================================
-    const juce::StringArray noteDivNames{ "1/16", "1/8", "1/4", "1/2", "1/1", "2/1" };
+    const juce::StringArray tempoOptions{ "1/16", "1/8", "1/4", "1/2", "1/1", "2/1" };
+    const juce::StringArray timeOptions{ "62ms", "125ms", "250ms", "500ms", "1s", "2s" };
 
     juce::ComboBox* noteDivMenus[4] = { &subNoteDivMenu, &bassNoteDivMenu, &midNoteDivMenu, &trebleNoteDivMenu };
     for (auto* m : noteDivMenus)
-        m->addItemList(noteDivNames, 1);
+        m->addItemList(tempoOptions, 1);
 
     subNoteDivLabel.setText("Sub Div", juce::dontSendNotification);
     bassNoteDivLabel.setText("Bass Div", juce::dontSendNotification);
@@ -175,18 +207,31 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
     midNoteDivAttach    = std::make_unique<MenuAttachment>(audioProcessor.apvts, "MID_NOTE_DIV",    midNoteDivMenu);
     trebleNoteDivAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "TREBLE_NOTE_DIV", trebleNoteDivMenu);
 
-    // Enable/disable note-division menus based on tempo sync state
-    auto updateNoteDivState = [this]()
-        {
-            bool bSync = tempoSyncSlider.getValue() > 0.5;
-            for (auto* m : { &subNoteDivMenu, &bassNoteDivMenu, &midNoteDivMenu, &trebleNoteDivMenu })
-                m->setEnabled(bSync);
-            for (auto* lbl : { &subNoteDivLabel, &bassNoteDivLabel, &midNoteDivLabel, &trebleNoteDivLabel })
-                lbl->setEnabled(bSync);
-        };
+    // Initialize division menus and labels based on current sync mode
+    bool bInitialSync = *audioProcessor.apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
 
-    tempoSyncSlider.onValueChange = [updateNoteDivState]() { updateNoteDivState(); };
-    updateNoteDivState();
+    for (auto* m : { &subNoteDivMenu, &bassNoteDivMenu, &midNoteDivMenu, &trebleNoteDivMenu })
+    {
+        m->clear(juce::dontSendNotification);
+        m->addItemList(bInitialSync ? juce::StringArray{ "1/16", "1/8", "1/4", "1/2", "1/1", "2/1" } 
+                                     : juce::StringArray{ "62ms", "125ms", "250ms", "500ms", "1s", "2s" }, 1);
+        m->setSelectedItemIndex(0, juce::dontSendNotification);
+    }
+
+    if (bInitialSync)
+    {
+        subNoteDivLabel.setText("Sub Div", juce::dontSendNotification);
+        bassNoteDivLabel.setText("Bass Div", juce::dontSendNotification);
+        midNoteDivLabel.setText("Mid Div", juce::dontSendNotification);
+        trebleNoteDivLabel.setText("Treble Div", juce::dontSendNotification);
+    }
+    else
+    {
+        subNoteDivLabel.setText("Sub Time", juce::dontSendNotification);
+        bassNoteDivLabel.setText("Bass Time", juce::dontSendNotification);
+        midNoteDivLabel.setText("Mid Time", juce::dontSendNotification);
+        trebleNoteDivLabel.setText("Treble Time", juce::dontSendNotification);
+    }
 
     //======================================================================
     // Disable channel spread controls in mono
@@ -313,8 +358,9 @@ void AutoTremolandoAudioProcessorEditor::resized()
     //==============================================================
     int menuW = 140;
     int menuH = 25;
+    int colGap = 10;
 
-    int menuX = 622;  // Centre the menus horizontally
+    int menuX = 622;  // Left column (presets, bypass, tremolo types)
     int menuY = 60;
 
     presetLabel.setBounds(menuX, menuY, menuW, 20);
@@ -340,27 +386,31 @@ void AutoTremolandoAudioProcessorEditor::resized()
 
     trebleTremLabel.setBounds(menuX, menuY, menuW, labelH);
     trebleTremMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
-    menuY += labelH + menuH + 16;
 
     //==============================================================
-    // Tempo sync switch + note-division menus (right column, below tremolo types)
+    // Tempo sync controls - second column to the right, aligned with presets
     //==============================================================
-    tempoSyncLabel.setBounds(menuX, menuY, menuW, labelH);
-    tempoSyncSlider.setBounds(menuX, menuY + labelH, menuW, menuH);
-    menuY += labelH + menuH + 8;
+    int tempoX = menuX + menuW + colGap;
+    int tempoY = 60;
+    int tempoColW = 130;
 
-    subNoteDivLabel.setBounds(menuX, menuY, menuW, labelH);
-    subNoteDivMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
-    menuY += labelH + menuH + 8;
+    tempoSyncLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
+    tempoSyncSlider.setBounds(tempoX, tempoY + labelH, tempoColW, menuH);
+    tempoY += labelH + menuH + 16;
 
-    bassNoteDivLabel.setBounds(menuX, menuY, menuW, labelH);
-    bassNoteDivMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
-    menuY += labelH + menuH + 8;
+    // Per-band note-division menus, arranged vertically in the right column
+    subNoteDivLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
+    subNoteDivMenu.setBounds(tempoX, tempoY + labelH, tempoColW, menuH);
+    tempoY += labelH + menuH + 8;
 
-    midNoteDivLabel.setBounds(menuX, menuY, menuW, labelH);
-    midNoteDivMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
-    menuY += labelH + menuH + 8;
+    bassNoteDivLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
+    bassNoteDivMenu.setBounds(tempoX, tempoY + labelH, tempoColW, menuH);
+    tempoY += labelH + menuH + 8;
 
-    trebleNoteDivLabel.setBounds(menuX, menuY, menuW, labelH);
-    trebleNoteDivMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
+    midNoteDivLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
+    midNoteDivMenu.setBounds(tempoX, tempoY + labelH, tempoColW, menuH);
+    tempoY += labelH + menuH + 8;
+
+    trebleNoteDivLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
+    trebleNoteDivMenu.setBounds(tempoX, tempoY + labelH, tempoColW, menuH);
 }

@@ -309,6 +309,20 @@ if (bTempoSync)
 		}
 	}
 }
+else
+{
+	// Time-based sync: convert time value selections to rates in Hz
+	// Options: 62ms, 125ms, 250ms, 500ms, 1s, 2s
+	const float timeValueHz[] = { 1.0f / 0.062f, 1.0f / 0.125f, 1.0f / 0.250f, 1.0f / 0.500f, 1.0f / 1.0f, 1.0f / 2.0f };
+	const int divIdx[4] = {
+		juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
+		juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
+		juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
+		juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
+	};
+	for (int b = 0; b < 4; ++b)
+		fRate[b] = timeValueHz[divIdx[b]];
+}
 
 for (int b = 0; b < 4; ++b)
 	fRate[b] = juce::jlimit(1.0f, 15.0f, fRate[b] * fMasterRate);
@@ -456,6 +470,20 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<double>& buffe
 				}
 			}
 		}
+	}
+	else
+	{
+		// Time-based sync: convert time value selections to rates in Hz
+		// Options: 62ms, 125ms, 250ms, 500ms, 1s, 2s
+		const float timeValueHz[] = { 1.0f / 0.062f, 1.0f / 0.125f, 1.0f / 0.250f, 1.0f / 0.500f, 1.0f / 1.0f, 1.0f / 2.0f };
+		const int divIdx[4] = {
+			juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
+			juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
+			juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
+			juce::jlimit(0, 5, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
+		};
+		for (int b = 0; b < 4; ++b)
+			fRate[b] = timeValueHz[divIdx[b]];
 	}
 
 	for (int b = 0; b < 4; ++b)
