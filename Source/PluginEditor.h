@@ -17,7 +17,7 @@
 const int NUM_OF_PARAMETERS = 22;
 
 //==============================================================================
-class AutoTremolandoAudioProcessorEditor : public juce::AudioProcessorEditor
+class AutoTremolandoAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
     AutoTremolandoAudioProcessorEditor(AutoTremolandoAudioProcessor&);
@@ -25,6 +25,7 @@ public:
 
     void paint(juce::Graphics&) override;
     void resized() override;
+    void timerCallback() override;
 
 private:
     // Sliders for all 21 parameters
@@ -43,6 +44,10 @@ private:
     juce::ComboBox presetMenu;
     juce::Label presetLabel;
 
+    // Utility controls
+    juce::TextButton tapTempoButton;
+    juce::TextButton resetDefaultsButton;
+
     // Bypass button
     juce::TextButton bypassButton;
     juce::Label bypassLabel;
@@ -52,12 +57,34 @@ private:
     juce::Label tempoSyncLabel;
     bool bCurrentSync = true;  // Track sync state for label updates
 
+    // Basic mode controls
+    juce::TextButton rateLockButton;
+    juce::TextButton retriggerButton;
+    juce::Label rateLockLabel, retriggerLabel;
+
+    juce::ComboBox stereoModeMenu, depthModeMenu;
+    juce::Label stereoModeLabel, depthModeLabel;
+
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> rateLockAttach, retriggerAttach;
+    std::unique_ptr<MenuAttachment> stereoModeAttach, depthModeAttach;
+
+    // Basic meter display
+    double fInputMeterDisplay = 0.0;
+    double fOutputMeterDisplay = 0.0;
+    juce::ProgressBar inputMeterBar;
+    juce::ProgressBar outputMeterBar;
+    juce::Label inputMeterLabel, outputMeterLabel;
+
     // Per-band note-division/time rotary sliders (active in both modes)
     juce::Slider subNoteDivSlider, bassNoteDivSlider, midNoteDivSlider, trebleNoteDivSlider;
     juce::Label subNoteDivLabel, subNoteDivValueLabel, bassNoteDivLabel, bassNoteDivValueLabel,
                 midNoteDivLabel, midNoteDivValueLabel, trebleNoteDivLabel, trebleNoteDivValueLabel;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> 
         subNoteDivAttach, bassNoteDivAttach, midNoteDivAttach, trebleNoteDivAttach;
+
+    juce::Slider startPhaseSlider;
+    juce::Label startPhaseLabel;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> startPhaseAttach;
 
     AutoTremolandoAudioProcessor& audioProcessor;
 

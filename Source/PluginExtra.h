@@ -70,8 +70,15 @@ public:
 		osc = (phase < M_PI) ? 1.0f : -1.0f;
 	}
 
+	void retrigger(float startPhase)
+	{
+		for (auto& channelPhases : fPhasePos)
+			for (int b = 0; b < 4; ++b)
+				channelPhases[b] = startPhase;
+	}
+
 	// Apply tremolo to each band
-	void processBands(int channel, float band[4], float depth[4], int choice[4], float offset, float pulseWidth)
+	void processBands(int channel, float band[4], float depth[4], int choice[4], float offset, float pulseWidth, int depthMode)
 	{
 		for (int b = 0; b < 4; ++b)
 		{
@@ -95,18 +102,26 @@ public:
 			else if (choice[b] == 4)
 				squareProcess(fPhase, fOsc);
 
-
-			float fTrem = (fOsc * depth[b] * 0.5f) + 0.5f;
+			float fTrem = 1.0f;
+			if (depthMode == 0)
+			{
+				const float fUnipolar = (fOsc + 1.0f) * 0.5f;
+				fTrem = (1.0f - depth[b]) + (depth[b] * fUnipolar);
+			}
+			else
+			{
+				fTrem = std::max(0.0f, 1.0f + (fOsc * depth[b]));
+			}
 
 			band[b] *= fTrem;
 		}
 	}
 
 	// Apply tremolo to this channel using effective values
-	void processChannelBands(int channel, float band[4], float depth[4], int choice[4], float rate[4], float sampleRate, float offset, float pulseWidth)
+	void processChannelBands(int channel, float band[4], float depth[4], int choice[4], float rate[4], float sampleRate, float offset, float pulseWidth, int depthMode)
 	{
 		computePhaseIncrements(rate, sampleRate);
-		processBands(channel, band, depth, choice, offset, pulseWidth);
+		processBands(channel, band, depth, choice, offset, pulseWidth, depthMode);
 	}
 
 private:

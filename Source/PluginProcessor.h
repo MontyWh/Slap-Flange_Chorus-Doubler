@@ -10,6 +10,7 @@
 
 #include <JuceHeader.h>
 #include "PluginExtra.h"
+#include <atomic>
 
 //==============================================================================
 class AutoTremolandoAudioProcessor : public juce::AudioProcessor
@@ -59,6 +60,11 @@ public:
     void loadPreset(int index);
     const std::vector<Preset>& getPresets() const { return presets; }
 
+    void registerTapTempo();
+    void resetParametersToDefaults();
+    float getInputMeterLevel() const;
+    float getOutputMeterLevel() const;
+
 private:
     std::vector<Preset> presets;
     void initPresets();
@@ -73,6 +79,20 @@ private:
     std::vector<float> fPhaseOffset;
 
     TremoloProcess tremolo;
+
+    juce::LinearSmoothedValue<float> smoothedInputGain;
+    juce::LinearSmoothedValue<float> smoothedOutputGain;
+    juce::LinearSmoothedValue<float> smoothedWet;
+    juce::LinearSmoothedValue<float> smoothedPulseWidth;
+    juce::LinearSmoothedValue<float> smoothedBypass;
+    juce::LinearSmoothedValue<float> smoothedRate[4];
+    juce::LinearSmoothedValue<float> smoothedDepth[4];
+
+    std::atomic<float> fTapTempoBpm { 120.0f };
+    std::atomic<double> fLastTapTimeMs { 0.0 };
+    std::atomic<float> fInputMeterLevel { 0.0f };
+    std::atomic<float> fOutputMeterLevel { 0.0f };
+    bool bWasPlaying = false;
 
     using Filter = juce::dsp::IIR::Filter<float>;
     using MultiChannelFilter = juce::OwnedArray<Filter>;

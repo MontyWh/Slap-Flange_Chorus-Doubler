@@ -12,7 +12,10 @@ static void setupSlider(juce::Slider& s)
 //==============================================================================
 
 AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremolandoAudioProcessor& p)
-    : AudioProcessorEditor(&p), audioProcessor(p)
+    : AudioProcessorEditor(&p),
+      inputMeterBar(fInputMeterDisplay),
+      outputMeterBar(fOutputMeterDisplay),
+      audioProcessor(p)
 {
     setSize(1400, 700);
 
@@ -49,6 +52,9 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
         setupSlider(parameters[i]);
         addAndMakeVisible(parameters[i]);
 
+        if (i == 6 || (i >= 7 && i <= 10))
+            parameters[i].setTextValueSuffix(" Hz");
+
         labels[i].setText(paramLabels[i], juce::dontSendNotification);
         labels[i].setJustificationType(juce::Justification::centred);
         addAndMakeVisible(labels[i]);
@@ -56,6 +62,16 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
         paramAttach[i] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
             audioProcessor.apvts, paramIDs[i], parameters[i]);
     }
+
+    setupSlider(startPhaseSlider);
+    startPhaseSlider.setTextValueSuffix(" deg");
+    addAndMakeVisible(startPhaseSlider);
+
+    startPhaseLabel.setText("Start Phase", juce::dontSendNotification);
+    startPhaseLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(startPhaseLabel);
+
+    startPhaseAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "START_PHASE", startPhaseSlider);
 
     //======================================================================
     // Tremolo type menus
@@ -109,6 +125,20 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
         {
             int index = presetMenu.getSelectedId() - 1;
             audioProcessor.loadPreset(index);
+        };
+
+    tapTempoButton.setButtonText("Tap Tempo");
+    addAndMakeVisible(tapTempoButton);
+    tapTempoButton.onClick = [this]()
+        {
+            audioProcessor.registerTapTempo();
+        };
+
+    resetDefaultsButton.setButtonText("Reset");
+    addAndMakeVisible(resetDefaultsButton);
+    resetDefaultsButton.onClick = [this]()
+        {
+            audioProcessor.resetParametersToDefaults();
         };
 
     //======================================================================
@@ -172,7 +202,7 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
                     int idx = juce::roundToInt(slider.getValue());
                     if (bNewSync)
                     {
-                        const juce::String tempoLabels[] = { 
+                        const juce::String tempoLabels[] = {
                             // 1/16
                             "1/16", "1/16t", "1/16d", "1/16 swing", "1/16 shuffle",
                             // 1/8
@@ -201,6 +231,50 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
             updateLabel(trebleNoteDivSlider, trebleNoteDivValueLabel);
         };
 
+    rateLockLabel.setText("Rate Lock", juce::dontSendNotification);
+    rateLockLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(rateLockLabel);
+
+    rateLockButton.setButtonText("Link");
+    addAndMakeVisible(rateLockButton);
+    rateLockAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(audioProcessor.apvts, "RATE_LOCK", rateLockButton);
+
+    retriggerLabel.setText("Retrigger", juce::dontSendNotification);
+    retriggerLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(retriggerLabel);
+
+    retriggerButton.setButtonText("On Play");
+    addAndMakeVisible(retriggerButton);
+    retriggerAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(audioProcessor.apvts, "RETRIGGER_ON_PLAY", retriggerButton);
+
+    stereoModeLabel.setText("Stereo Mode", juce::dontSendNotification);
+    stereoModeLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(stereoModeLabel);
+
+    stereoModeMenu.addItemList({ "Mono", "Ping Pong", "Spread" }, 1);
+    addAndMakeVisible(stereoModeMenu);
+    stereoModeAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "STEREO_MODE", stereoModeMenu);
+
+    depthModeLabel.setText("Depth Mode", juce::dontSendNotification);
+    depthModeLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(depthModeLabel);
+
+    depthModeMenu.addItemList({ "Unipolar", "Bipolar" }, 1);
+    addAndMakeVisible(depthModeMenu);
+    depthModeAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "DEPTH_MODE", depthModeMenu);
+
+    inputMeterLabel.setText("Input", juce::dontSendNotification);
+    inputMeterLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(inputMeterLabel);
+    addAndMakeVisible(inputMeterBar);
+
+    outputMeterLabel.setText("Output", juce::dontSendNotification);
+    outputMeterLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(outputMeterLabel);
+    addAndMakeVisible(outputMeterBar);
+
+    startTimerHz(30);
+
     //======================================================================
     // Division rotary sliders (note divisions for Tempo, time values for Time-based)
     //======================================================================
@@ -208,7 +282,7 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
         {
             slider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
             slider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
-            slider.setRange(0.0, 11.0, 1.0);
+            slider.setRange(0.0, 29.0, 1.0);
             slider.setColour(juce::Slider::rotarySliderFillColourId, juce::Colours::cyan);
             addAndMakeVisible(slider);
 
@@ -289,6 +363,7 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
 
     // Initialize division menus and labels based on current sync mode
     bCurrentSync = *audioProcessor.apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
+    tempoSyncSlider.setButtonText(bCurrentSync ? "TEMPO" : "TIME");
 
     if (!bCurrentSync)
     {
@@ -319,6 +394,13 @@ AutoTremolandoAudioProcessorEditor::~AutoTremolandoAudioProcessorEditor() {}
 
 //==============================================================================
 
+void AutoTremolandoAudioProcessorEditor::timerCallback()
+{
+    fInputMeterDisplay = juce::jlimit(0.0, 1.0, (double)audioProcessor.getInputMeterLevel());
+    fOutputMeterDisplay = juce::jlimit(0.0, 1.0, (double)audioProcessor.getOutputMeterLevel());
+    repaint();
+}
+
 void AutoTremolandoAudioProcessorEditor::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colours::black);
@@ -341,7 +423,7 @@ void AutoTremolandoAudioProcessorEditor::resized()
     int x = margin;
     int y = 60;
 
-    // Row 1 (3 items) - Input, Presence, Pulse Width
+    // Row 1 (4 items) - Input, Presence, Pulse Width, Start Phase
     parameters[0].setBounds(x, y, sliderW, sliderH);   // Input Gain
     labels[0].setBounds(x, y + sliderH, sliderW, labelH);
     x += sliderW + margin;
@@ -352,6 +434,10 @@ void AutoTremolandoAudioProcessorEditor::resized()
 
     parameters[18].setBounds(x, y, sliderW, sliderH);  // Pulse Width
     labels[18].setBounds(x, y + sliderH, sliderW, labelH);
+    x += sliderW + margin;
+
+    startPhaseSlider.setBounds(x, y, sliderW, sliderH);
+    startPhaseLabel.setBounds(x, y + sliderH, sliderW, labelH);
 
     // Row 2 (4 items) - Rates grouped
     x = margin;
@@ -430,7 +516,13 @@ void AutoTremolandoAudioProcessorEditor::resized()
 
     presetLabel.setBounds(menuX, menuY, menuW, 20);
     presetMenu.setBounds(menuX, menuY + 20, menuW, 25);
-    menuY += 45;
+    menuY += 50;
+
+    tapTempoButton.setBounds(menuX, menuY, menuW, menuH);
+    menuY += menuH + 8;
+
+    resetDefaultsButton.setBounds(menuX, menuY, menuW, menuH);
+    menuY += menuH + 10;
 
     bypassLabel.setBounds(menuX, menuY, menuW, 20);
     bypassButton.setBounds(menuX, menuY + 20, menuW, menuH);
@@ -483,4 +575,34 @@ void AutoTremolandoAudioProcessorEditor::resized()
     trebleNoteDivLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
     trebleNoteDivSlider.setBounds(tempoX + (tempoColW - sliderSize) / 2, tempoY + labelH, sliderSize, sliderSize);
     trebleNoteDivValueLabel.setBounds(tempoX, tempoY + labelH + sliderSize, tempoColW, labelH);
+
+    //==============================================================
+    // Extra controls - third column to the right of tempo sync
+    //==============================================================
+    int extraX = tempoX + tempoColW + colGap;
+    int extraY = 60;
+    int extraColW = 140;
+
+    rateLockLabel.setBounds(extraX, extraY, extraColW, labelH);
+    rateLockButton.setBounds(extraX, extraY + labelH, extraColW, menuH);
+    extraY += labelH + menuH + 8;
+
+    retriggerLabel.setBounds(extraX, extraY, extraColW, labelH);
+    retriggerButton.setBounds(extraX, extraY + labelH, extraColW, menuH);
+    extraY += labelH + menuH + 8;
+
+    stereoModeLabel.setBounds(extraX, extraY, extraColW, labelH);
+    stereoModeMenu.setBounds(extraX, extraY + labelH, extraColW, menuH);
+    extraY += labelH + menuH + 8;
+
+    depthModeLabel.setBounds(extraX, extraY, extraColW, labelH);
+    depthModeMenu.setBounds(extraX, extraY + labelH, extraColW, menuH);
+    extraY += labelH + menuH + 12;
+
+    inputMeterLabel.setBounds(extraX, extraY, extraColW, labelH);
+    inputMeterBar.setBounds(extraX, extraY + labelH, extraColW, 14);
+    extraY += labelH + 20;
+
+    outputMeterLabel.setBounds(extraX, extraY, extraColW, labelH);
+    outputMeterBar.setBounds(extraX, extraY + labelH, extraColW, 14);
 }
