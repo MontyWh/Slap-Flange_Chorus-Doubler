@@ -2,11 +2,38 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
+namespace
+{
+    constexpr int iBaseEditorWidth = 1400;
+    constexpr int iBaseEditorHeight = 700;
+    constexpr float fTargetScreenCoverage = 0.85f;
+    constexpr float fMinUiScale = 0.55f;
+    constexpr float fMaxUiScale = 1.60f;
+
+    float getScreenLinkedUiScale()
+    {
+        if (auto* display = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
+        {
+            const auto userArea = display->userArea;
+            const float fScaleX = (static_cast<float>(userArea.getWidth()) * fTargetScreenCoverage) / static_cast<float>(iBaseEditorWidth);
+            const float fScaleY = (static_cast<float>(userArea.getHeight()) * fTargetScreenCoverage) / static_cast<float>(iBaseEditorHeight);
+            return juce::jlimit(fMinUiScale, fMaxUiScale, juce::jmin(fScaleX, fScaleY));
+        }
+
+        return 1.0f;
+    }
+
+    int scaled(const int value, const float fUiScale)
+    {
+        return juce::roundToInt(static_cast<float>(value) * fUiScale);
+    }
+}
+
 // Helper for consistent slider setup
-static void setupSlider(juce::Slider& s)
+static void setupSlider(juce::Slider& s, const float fUiScale)
 {
     s.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-    s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+    s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, scaled(60, fUiScale), scaled(20, fUiScale));
 }
 
 //==============================================================================
@@ -17,7 +44,8 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
       outputMeterBar(fOutputMeterDisplay),
       audioProcessor(p)
 {
-    setSize(1400, 700);
+    const float fUiScale = getScreenLinkedUiScale();
+    setSize(scaled(iBaseEditorWidth, fUiScale), scaled(iBaseEditorHeight, fUiScale));
 
     //======================================================================
     // Parameter IDs in DSP signal-chain order
@@ -49,7 +77,7 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
     //======================================================================
     for (int i = 0; i < NUM_OF_PARAMETERS; ++i)
     {
-        setupSlider(parameters[i]);
+        setupSlider(parameters[i], fUiScale);
         addAndMakeVisible(parameters[i]);
 
         if (i == 6 || (i >= 7 && i <= 10))
@@ -63,7 +91,11 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
             audioProcessor.apvts, paramIDs[i], parameters[i]);
     }
 
+<<<<<<< Updated upstream
     setupSlider(startPhaseSlider);
+=======
+    setupSlider(startPhaseSlider, fUiScale);
+>>>>>>> Stashed changes
     startPhaseSlider.setTextValueSuffix(" deg");
     addAndMakeVisible(startPhaseSlider);
 
@@ -412,16 +444,20 @@ void AutoTremolandoAudioProcessorEditor::paint(juce::Graphics& g)
 //==============================================================================
 void AutoTremolandoAudioProcessorEditor::resized()
 {
-    int margin = 20;
-    int sliderW = 120;
-    int sliderH = 120;
-    int labelH = 20;
+    const float fUiScale = juce::jmin(
+        static_cast<float>(getWidth()) / static_cast<float>(iBaseEditorWidth),
+        static_cast<float>(getHeight()) / static_cast<float>(iBaseEditorHeight));
+
+    const int margin = scaled(20, fUiScale);
+    const int sliderW = scaled(120, fUiScale);
+    const int sliderH = scaled(120, fUiScale);
+    const int labelH = scaled(20, fUiScale);
 
     //==============================================================
     // Sliders in literal DSP signal-chain order (left grid)
     //==============================================================
     int x = margin;
-    int y = 60;
+    int y = scaled(60, fUiScale);
 
     // Row 1 (4 items) - Input, Presence, Pulse Width, Start Phase
     parameters[0].setBounds(x, y, sliderW, sliderH);   // Input Gain
@@ -507,13 +543,14 @@ void AutoTremolandoAudioProcessorEditor::resized()
     //==============================================================
     // Right-side menus and controls
     //==============================================================
-    int menuW = 140;
-    int menuH = 25;
-    int colGap = 10;
+    const int menuW = scaled(140, fUiScale);
+    const int menuH = scaled(25, fUiScale);
+    const int colGap = scaled(10, fUiScale);
 
-    int menuX = 622;  // Left column (presets, bypass, tremolo types)
-    int menuY = 60;
+    const int menuX = scaled(622, fUiScale);  // Left column (presets, bypass, tremolo types)
+    int menuY = scaled(60, fUiScale);
 
+<<<<<<< Updated upstream
     presetLabel.setBounds(menuX, menuY, menuW, 20);
     presetMenu.setBounds(menuX, menuY + 20, menuW, 25);
     menuY += 50;
@@ -523,23 +560,34 @@ void AutoTremolandoAudioProcessorEditor::resized()
 
     resetDefaultsButton.setBounds(menuX, menuY, menuW, menuH);
     menuY += menuH + 10;
+=======
+    presetLabel.setBounds(menuX, menuY, menuW, labelH);
+    presetMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
+    menuY += labelH + menuH + scaled(5, fUiScale);
+>>>>>>> Stashed changes
 
-    bypassLabel.setBounds(menuX, menuY, menuW, 20);
-    bypassButton.setBounds(menuX, menuY + 20, menuW, menuH);
-    menuY += 50;
+    tapTempoButton.setBounds(menuX, menuY, menuW, menuH);
+    menuY += menuH + scaled(8, fUiScale);
+
+    resetDefaultsButton.setBounds(menuX, menuY, menuW, menuH);
+    menuY += menuH + scaled(10, fUiScale);
+
+    bypassLabel.setBounds(menuX, menuY, menuW, labelH);
+    bypassButton.setBounds(menuX, menuY + labelH, menuW, menuH);
+    menuY += labelH + menuH + scaled(5, fUiScale);
 
     // Tremolo type menus - positioned after bypass with tighter spacing
     subTremLabel.setBounds(menuX, menuY, menuW, labelH);
     subTremMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
-    menuY += labelH + menuH + 8;
+    menuY += labelH + menuH + scaled(8, fUiScale);
 
     bassTremLabel.setBounds(menuX, menuY, menuW, labelH);
     bassTremMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
-    menuY += labelH + menuH + 8;
+    menuY += labelH + menuH + scaled(8, fUiScale);
 
     midTremLabel.setBounds(menuX, menuY, menuW, labelH);
     midTremMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
-    menuY += labelH + menuH + 8;
+    menuY += labelH + menuH + scaled(8, fUiScale);
 
     trebleTremLabel.setBounds(menuX, menuY, menuW, labelH);
     trebleTremMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
@@ -547,30 +595,30 @@ void AutoTremolandoAudioProcessorEditor::resized()
     //==============================================================
     // Tempo sync controls - second column to the right, aligned with presets
     //==============================================================
-    int tempoX = menuX + menuW + colGap;
-    int tempoY = 60;
-    int tempoColW = 130;
-    int sliderSize = 60;  // Rotary slider diameter
+    const int tempoX = menuX + menuW + colGap;
+    int tempoY = scaled(60, fUiScale);
+    const int tempoColW = scaled(130, fUiScale);
+    const int sliderSize = scaled(60, fUiScale);  // Rotary slider diameter
 
     tempoSyncLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
     tempoSyncSlider.setBounds(tempoX, tempoY + labelH, tempoColW, menuH);
-    tempoY += labelH + menuH + 16;
+    tempoY += labelH + menuH + scaled(16, fUiScale);
 
     // Per-band note-division rotary sliders with value displays
     subNoteDivLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
     subNoteDivSlider.setBounds(tempoX + (tempoColW - sliderSize) / 2, tempoY + labelH, sliderSize, sliderSize);
     subNoteDivValueLabel.setBounds(tempoX, tempoY + labelH + sliderSize, tempoColW, labelH);
-    tempoY += labelH + sliderSize + labelH + 16;
+    tempoY += labelH + sliderSize + labelH + scaled(16, fUiScale);
 
     bassNoteDivLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
     bassNoteDivSlider.setBounds(tempoX + (tempoColW - sliderSize) / 2, tempoY + labelH, sliderSize, sliderSize);
     bassNoteDivValueLabel.setBounds(tempoX, tempoY + labelH + sliderSize, tempoColW, labelH);
-    tempoY += labelH + sliderSize + labelH + 16;
+    tempoY += labelH + sliderSize + labelH + scaled(16, fUiScale);
 
     midNoteDivLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
     midNoteDivSlider.setBounds(tempoX + (tempoColW - sliderSize) / 2, tempoY + labelH, sliderSize, sliderSize);
     midNoteDivValueLabel.setBounds(tempoX, tempoY + labelH + sliderSize, tempoColW, labelH);
-    tempoY += labelH + sliderSize + labelH + 16;
+    tempoY += labelH + sliderSize + labelH + scaled(16, fUiScale);
 
     trebleNoteDivLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
     trebleNoteDivSlider.setBounds(tempoX + (tempoColW - sliderSize) / 2, tempoY + labelH, sliderSize, sliderSize);
@@ -579,6 +627,7 @@ void AutoTremolandoAudioProcessorEditor::resized()
     //==============================================================
     // Extra controls - third column to the right of tempo sync
     //==============================================================
+<<<<<<< Updated upstream
     int extraX = tempoX + tempoColW + colGap;
     int extraY = 60;
     int extraColW = 140;
@@ -605,4 +654,32 @@ void AutoTremolandoAudioProcessorEditor::resized()
 
     outputMeterLabel.setBounds(extraX, extraY, extraColW, labelH);
     outputMeterBar.setBounds(extraX, extraY + labelH, extraColW, 14);
+=======
+    const int extraX = tempoX + tempoColW + colGap;
+    int extraY = scaled(60, fUiScale);
+    const int extraColW = scaled(140, fUiScale);
+
+    rateLockLabel.setBounds(extraX, extraY, extraColW, labelH);
+    rateLockButton.setBounds(extraX, extraY + labelH, extraColW, menuH);
+    extraY += labelH + menuH + scaled(8, fUiScale);
+
+    retriggerLabel.setBounds(extraX, extraY, extraColW, labelH);
+    retriggerButton.setBounds(extraX, extraY + labelH, extraColW, menuH);
+    extraY += labelH + menuH + scaled(8, fUiScale);
+
+    stereoModeLabel.setBounds(extraX, extraY, extraColW, labelH);
+    stereoModeMenu.setBounds(extraX, extraY + labelH, extraColW, menuH);
+    extraY += labelH + menuH + scaled(8, fUiScale);
+
+    depthModeLabel.setBounds(extraX, extraY, extraColW, labelH);
+    depthModeMenu.setBounds(extraX, extraY + labelH, extraColW, menuH);
+    extraY += labelH + menuH + scaled(12, fUiScale);
+
+    inputMeterLabel.setBounds(extraX, extraY, extraColW, labelH);
+    inputMeterBar.setBounds(extraX, extraY + labelH, extraColW, scaled(14, fUiScale));
+    extraY += labelH + scaled(20, fUiScale);
+
+    outputMeterLabel.setBounds(extraX, extraY, extraColW, labelH);
+    outputMeterBar.setBounds(extraX, extraY + labelH, extraColW, scaled(14, fUiScale));
+>>>>>>> Stashed changes
 }
