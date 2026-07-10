@@ -34,23 +34,23 @@ juce::AudioProcessorValueTreeState::ParameterLayout AutoTremolandoAudioProcessor
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    juce::StringArray tremoloOptions = { "Sine", "Triangle", "Sawtooth", "Pulse", "Square" };
+    juce::StringArray sTremoloOptions = { "Sine", "Triangle", "Sawtooth", "Pulse", "Square" };
 
     // Tremolo type menus
-    params.push_back(std::make_unique<juce::AudioParameterChoice>("SUB_TREMOLO", "Sub Tremolo", tremoloOptions, 0));
-    params.push_back(std::make_unique<juce::AudioParameterChoice>("BASS_TREMOLO", "Bass Tremolo", tremoloOptions, 0));
-    params.push_back(std::make_unique<juce::AudioParameterChoice>("MID_TREMOLO", "Mid Tremolo", tremoloOptions, 0));
-    params.push_back(std::make_unique<juce::AudioParameterChoice>("TREBLE_TREMOLO", "Treble Tremolo", tremoloOptions, 0));
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("SUB_TREMOLO", "Sub Tremolo", sTremoloOptions, 0));
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("BASS_TREMOLO", "Bass Tremolo", sTremoloOptions, 0));
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("MID_TREMOLO", "Mid Tremolo", sTremoloOptions, 0));
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("TREBLE_TREMOLO", "Treble Tremolo", sTremoloOptions, 0));
 
     // Input/Output gain
     params.push_back(std::make_unique<juce::AudioParameterFloat>("INPUT_GAIN", "Input Gain", 0.0f, 1.0f, 0.5f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("OUTPUT_GAIN", "Output Gain", 0.0f, 1.0f, 0.5f));
 
     // Per-band RATE
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("SUB_TREM_RATE", "Sub Rate", 1.0f, 15.0f, 5.0f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("BASS_TREM_RATE", "Bass Rate", 1.0f, 15.0f, 5.0f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("MID_TREM_RATE", "Mid Rate", 1.0f, 15.0f, 5.0f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("TREBLE_TREM_RATE", "Treble Rate", 1.0f, 15.0f, 5.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("SUB_TREM_RATE", "Sub Rate", 0.5f, 16.0f, 5.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("BASS_TREM_RATE", "Bass Rate", 0.5f, 16.0f, 5.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("MID_TREM_RATE", "Mid Rate", 0.5f, 16.0f, 5.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("TREBLE_TREM_RATE", "Treble Rate", 0.5f, 16.0f, 5.0f));
 
     // Master Rate (multiplier for all band rates)
     params.push_back(std::make_unique<juce::AudioParameterFloat>("MASTER_RATE", "Master Rate", 0.5f, 2.0f, 1.0f));
@@ -74,11 +74,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout AutoTremolandoAudioProcessor
     params.push_back(std::make_unique<juce::AudioParameterBool>("RATE_LOCK", "Rate Lock", false));
     params.push_back(std::make_unique<juce::AudioParameterBool>("RETRIGGER_ON_PLAY", "Retrigger On Play", true));
 
-    juce::StringArray stereoModes = { "Mono", "Ping Pong", "Spread" };
-    params.push_back(std::make_unique<juce::AudioParameterChoice>("STEREO_MODE", "Stereo Mode", stereoModes, 2));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("SURROUND_WIDTH", "Surround Width", 0.0f, 1.0f, 1.0f));
 
-    juce::StringArray depthModes = { "Unipolar", "Bipolar" };
-    params.push_back(std::make_unique<juce::AudioParameterChoice>("DEPTH_MODE", "Depth Mode", depthModes, 0));
+    juce::StringArray sDepthModes = { "Unipolar", "Bipolar" };
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("DEPTH_MODE", "Depth Mode", sDepthModes, 0));
 
     // Bypass
     params.push_back(std::make_unique<juce::AudioParameterBool>("BYPASS", "Bypass", false));
@@ -86,13 +85,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout AutoTremolandoAudioProcessor
     // Tempo sync
     params.push_back(std::make_unique<juce::AudioParameterBool>("TEMPO_SYNC", "Tempo Sync", false));
 
-    // Note division / time sliders: 0–29 range supports 30 positions
-    // Tempo mode: Straight (6) + Triplet (6) + Dotted (6) + Swing (6) + Shuffle (6)
+    // Note division / time sliders: 0–14 range supports 15 standard sync positions
+    // Tempo mode: Straight, Triplet and Dotted for common note values
     // Time mode: 0.5 Hz to 16 Hz (2s to 62ms)
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("SUB_NOTE_DIV",    "Sub Note Div",    0.0f, 29.0f, 4.0f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("BASS_NOTE_DIV",   "Bass Note Div",   0.0f, 29.0f, 4.0f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("MID_NOTE_DIV",    "Mid Note Div",    0.0f, 29.0f, 4.0f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("TREBLE_NOTE_DIV", "Treble Note Div", 0.0f, 29.0f, 4.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("SUB_NOTE_DIV",    "Sub Note Div",    0.0f, 14.0f, 9.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("BASS_NOTE_DIV",   "Bass Note Div",   0.0f, 14.0f, 9.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("MID_NOTE_DIV",    "Mid Note Div",    0.0f, 14.0f, 9.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("TREBLE_NOTE_DIV", "Treble Note Div", 0.0f, 14.0f, 9.0f));
 
     return { params.begin(), params.end() };
 }
@@ -108,7 +107,7 @@ void AutoTremolandoAudioProcessor::initPresets()
         5.0f, 5.0f, 5.0f, 5.0f,   // Sub/Bass/Mid/Treble Rates
         0.5f, 0.5f, 0.5f, 0.5f,   // Sub/Bass/Mid/Treble Depths
         0.0f, 0.0f, 0.0f, 0.0f, 0.5f,   // Phase Offset, Start Phase, Rate Offset, Depth Offset, Pulse Width
-        0.0f, 1.0f, 2.0f, 0.0f,         // Rate Lock, Retrigger On Play, Stereo Mode, Depth Mode
+        0.0f, 1.0f, 1.0f, 0.0f,         // Rate Lock, Retrigger On Play, Surround Width, Depth Mode
         1.0f, 0.5f, 0.0f     // Wet, Output, Bypass
     }},
     { "Preset 2", {
@@ -118,7 +117,7 @@ void AutoTremolandoAudioProcessor::initPresets()
         5.0f, 5.0f, 5.0f, 5.0f,   // Sub/Bass/Mid/Treble Rates
         0.5f, 0.5f, 0.5f, 0.5f,   // Sub/Bass/Mid/Treble Depths
         0.0f, 0.0f, 0.0f, 0.0f, 0.5f,   // Phase Offset, Start Phase, Rate Offset, Depth Offset, Pulse Width
-        0.0f, 1.0f, 2.0f, 0.0f,         // Rate Lock, Retrigger On Play, Stereo Mode, Depth Mode
+        0.0f, 1.0f, 1.0f, 0.0f,         // Rate Lock, Retrigger On Play, Surround Width, Depth Mode
         1.0f, 0.5f, 0.0f     // Wet, Output, Bypass
     }},
     { "Preset 3", {
@@ -128,7 +127,7 @@ void AutoTremolandoAudioProcessor::initPresets()
         5.0f, 5.0f, 5.0f, 5.0f,   // Sub/Bass/Mid/Treble Rates
         0.5f, 0.5f, 0.5f, 0.5f,   // Sub/Bass/Mid/Treble Depths
         0.0f, 0.0f, 0.0f, 0.0f, 0.5f,   // Phase Offset, Start Phase, Rate Offset, Depth Offset, Pulse Width
-        0.0f, 1.0f, 2.0f, 0.0f,         // Rate Lock, Retrigger On Play, Stereo Mode, Depth Mode
+        0.0f, 1.0f, 1.0f, 0.0f,         // Rate Lock, Retrigger On Play, Surround Width, Depth Mode
         1.0f, 0.5f, 0.0f     // Wet, Output, Bypass
     }}
     };
@@ -148,28 +147,28 @@ void AutoTremolandoAudioProcessor::loadPreset(int index)
         "SUB_TREM_RATE", "BASS_TREM_RATE", "MID_TREM_RATE", "TREBLE_TREM_RATE",
         "SUB_TREM_DEPTH", "BASS_TREM_DEPTH", "MID_TREM_DEPTH", "TREBLE_TREM_DEPTH",
         "PHASE_OFFSET", "START_PHASE", "RATE_OFFSET", "DEPTH_OFFSET", "PULSE_WIDTH",
-        "RATE_LOCK", "RETRIGGER_ON_PLAY", "STEREO_MODE", "DEPTH_MODE",
+        "RATE_LOCK", "RETRIGGER_ON_PLAY", "SURROUND_WIDTH", "DEPTH_MODE",
         "WET", "OUTPUT_GAIN", "BYPASS"
     };
 
-    for (int i = 0; i < (int)preset.values.size(); ++i)
+    for (int i = 0; i < (int)preset.fValues.size(); ++i)
         if (auto* param = apvts.getParameter(paramIDs[i]))
-            param->setValueNotifyingHost(param->convertTo0to1(preset.values[i]));
+            param->setValueNotifyingHost(param->convertTo0to1(preset.fValues[i]));
 }
 
 void AutoTremolandoAudioProcessor::registerTapTempo()
 {
-    const double fNowMs = juce::Time::getMillisecondCounterHiRes();
-    const double fPreviousTapMs = fLastTapTimeMs.exchange(fNowMs);
+    const double dNowMs = juce::Time::getMillisecondCounterHiRes();
+    const double dPreviousTapMs = dLastTapTimeMs.exchange(dNowMs);
 
-    if (fPreviousTapMs <= 0.0)
+    if (dPreviousTapMs <= 0.0)
         return;
 
-    const double fDeltaMs = fNowMs - fPreviousTapMs;
-    if (fDeltaMs < 120.0 || fDeltaMs > 2000.0)
+    const double dDeltaMs = dNowMs - dPreviousTapMs;
+    if (dDeltaMs < 120.0 || dDeltaMs > 2000.0)
         return;
 
-    const float fNewBpm = static_cast<float>(60000.0 / fDeltaMs);
+    const float fNewBpm = static_cast<float>(60000.0 / dDeltaMs);
     fTapTempoBpm.store(juce::jlimit(40.0f, 240.0f, fNewBpm));
 }
 
@@ -242,22 +241,25 @@ int AutoTremolandoAudioProcessor::getCurrentProgram()
 
 void AutoTremolandoAudioProcessor::setCurrentProgram(int index)
 {
+    juce::ignoreUnused(index);
 }
 
 const juce::String AutoTremolandoAudioProcessor::getProgramName(int index)
 {
+    juce::ignoreUnused(index);
     return {};
 }
 
 void AutoTremolandoAudioProcessor::changeProgramName(int index, const juce::String& newName)
 {
+    juce::ignoreUnused(index, newName);
 }
 
 //==============================================================================
 void AutoTremolandoAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    int numChannels = getTotalNumInputChannels();
-    int numOutputChannels = getTotalNumOutputChannels();
+    int iNumChannels = getTotalNumInputChannels();
+    int iNumOutputChannels = getTotalNumOutputChannels();
 
     fSampleRate = static_cast<float>(sampleRate);
 
@@ -274,19 +276,19 @@ void AutoTremolandoAudioProcessor::prepareToPlay(double sampleRate, int samplesP
     treble.clear();
     resonanceFilter.clear();
 
-    for (int i = 0; i < numChannels; ++i)
+    for (int iChannel = 0; iChannel < iNumChannels; ++iChannel)
     {
-        subBass.add(new Filter());      subBass[i]->prepare(spec);
-        bassLower.add(new Filter());    bassLower[i]->prepare(spec);
-        bassUpper.add(new Filter());    bassUpper[i]->prepare(spec);
-        midLower.add(new Filter());     midLower[i]->prepare(spec);
-        midUpper.add(new Filter());     midUpper[i]->prepare(spec);
-        treble.add(new Filter());       treble[i]->prepare(spec);
-        resonanceFilter.add(new Filter()); resonanceFilter[i]->prepare(spec);
+        subBass.add(new Filter());      subBass[iChannel]->prepare(spec);
+        bassLower.add(new Filter());    bassLower[iChannel]->prepare(spec);
+        bassUpper.add(new Filter());    bassUpper[iChannel]->prepare(spec);
+        midLower.add(new Filter());     midLower[iChannel]->prepare(spec);
+        midUpper.add(new Filter());     midUpper[iChannel]->prepare(spec);
+        treble.add(new Filter());       treble[iChannel]->prepare(spec);
+        resonanceFilter.add(new Filter()); resonanceFilter[iChannel]->prepare(spec);
     }
 
-    fPhaseOffset.assign(numOutputChannels, 0.0f);
-    tremolo.reset(numChannels);
+    fPhaseOffset.assign(iNumOutputChannels, 0.0f);
+    tremolo.reset(iNumChannels);
 
     const float fStartPhaseDegrees = *apvts.getRawParameterValue("START_PHASE");
     tremolo.retrigger(juce::degreesToRadians(fStartPhaseDegrees));
@@ -303,12 +305,12 @@ void AutoTremolandoAudioProcessor::prepareToPlay(double sampleRate, int samplesP
     smoothedPulseWidth.setCurrentAndTargetValue(0.5f);
     smoothedBypass.setCurrentAndTargetValue(0.0f);
 
-    for (int b = 0; b < 4; ++b)
+    for (int iBand = 0; iBand < 4; ++iBand)
     {
-        smoothedRate[b].reset(sampleRate, 0.02);
-        smoothedDepth[b].reset(sampleRate, 0.02);
-        smoothedRate[b].setCurrentAndTargetValue(5.0f);
-        smoothedDepth[b].setCurrentAndTargetValue(0.5f);
+        smoothedRate[iBand].reset(sampleRate, 0.02);
+        smoothedDepth[iBand].reset(sampleRate, 0.02);
+        smoothedRate[iBand].setCurrentAndTargetValue(5.0f);
+        smoothedDepth[iBand].setCurrentAndTargetValue(0.5f);
     }
 
     bWasPlaying = false;
@@ -346,14 +348,14 @@ bool AutoTremolandoAudioProcessor::isBusesLayoutSupported(const BusesLayout& lay
 void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
 	juce::ScopedNoDenormals noDenormals;
-	auto totalNumInputChannels = getTotalNumInputChannels();
-	auto numSamples = buffer.getNumSamples();
+	auto iTotalNumInputChannels = getTotalNumInputChannels();
+	auto iNumSamples = buffer.getNumSamples();
 
 	const bool bBypass = *apvts.getRawParameterValue("BYPASS") > 0.5f;
 	const bool bTempoSync = *apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
 	const bool bRateLock = *apvts.getRawParameterValue("RATE_LOCK") > 0.5f;
 	const bool bRetriggerOnPlay = *apvts.getRawParameterValue("RETRIGGER_ON_PLAY") > 0.5f;
-	const int iStereoMode = (int)*apvts.getRawParameterValue("STEREO_MODE");
+	const float fSurroundWidth = juce::jlimit(0.0f, 1.0f, apvts.getRawParameterValue("SURROUND_WIDTH")->load());
 	const int iDepthMode = (int)*apvts.getRawParameterValue("DEPTH_MODE");
 
 	const float fInGainTarget = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
@@ -397,78 +399,57 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
 
 	if (bTempoSync)
 	{
-		const float tempoMultipliers[] = {
-			4.0f, 3.0f, 6.0f, 4.8f, 5.33f,
-			2.0f, 1.5f, 3.0f, 2.4f, 2.67f,
-			1.0f, 0.75f, 1.5f, 1.2f, 1.33f,
-			0.5f, 0.375f, 0.75f, 0.6f, 0.67f,
-			0.25f, 0.1875f, 0.375f, 0.3f, 0.33f,
-			0.125f, 0.09375f, 0.1875f, 0.15f, 0.167f
+		const float fTempoMultipliers[] = {
+			0.25f, 0.166667f, 0.375f,
+			0.5f, 0.333333f, 0.75f,
+			1.0f, 0.666667f, 1.5f,
+			2.0f, 1.333333f, 3.0f,
+			4.0f, 2.666667f, 6.0f
 		};
-		const int divIdx[4] = {
-			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
-			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
-			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
-			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
+		const int iDivIdx[4] = {
+			juce::jlimit(0, 14, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
+			juce::jlimit(0, 14, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
+			juce::jlimit(0, 14, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
+			juce::jlimit(0, 14, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
 		};
 		const float fBeatsPerSec = fSyncBpm / 60.0f;
-		for (int b = 0; b < 4; ++b)
-			fRate[b] = fBeatsPerSec * tempoMultipliers[divIdx[b]];
-	}
-	else
-	{
-		const int divIdx[4] = {
-			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
-			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
-			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
-			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
-		};
-		for (int b = 0; b < 4; ++b)
-			fRate[b] = 0.5f + (divIdx[b] / 29.0f) * 15.5f;
+		for (int iBand = 0; iBand < 4; ++iBand)
+			fRate[iBand] = fBeatsPerSec * fTempoMultipliers[iDivIdx[iBand]];
 	}
 
-	for (int b = 0; b < 4; ++b)
-		fRate[b] = juce::jlimit(1.0f, 15.0f, fRate[b] * fMasterRate);
+	for (int iBand = 0; iBand < 4; ++iBand)
+		fRate[iBand] = juce::jlimit(0.5f, 16.0f, fRate[iBand] * fMasterRate);
 
 	if (bRateLock)
-		for (int b = 1; b < 4; ++b)
-			fRate[b] = fRate[0];
+		for (int iBand = 1; iBand < 4; ++iBand)
+			fRate[iBand] = fRate[0];
 
 	fDepth[0] = *apvts.getRawParameterValue("SUB_TREM_DEPTH");
 	fDepth[1] = *apvts.getRawParameterValue("BASS_TREM_DEPTH");
 	fDepth[2] = *apvts.getRawParameterValue("MID_TREM_DEPTH");
 	fDepth[3] = *apvts.getRawParameterValue("TREBLE_TREM_DEPTH");
 
-	for (int b = 0; b < 4; ++b)
+	for (int iBand = 0; iBand < 4; ++iBand)
 	{
-		smoothedRate[b].setTargetValue(fRate[b]);
-		smoothedDepth[b].setTargetValue(fDepth[b]);
+		smoothedRate[iBand].setTargetValue(fRate[iBand]);
+		smoothedDepth[iBand].setTargetValue(fDepth[iBand]);
 	}
 
 	const float fPhaseOffsetRadians = juce::degreesToRadians(fPhaseOffsetDegrees);
-	if (iStereoMode == 0 || totalNumInputChannels <= 1)
+	if (iTotalNumInputChannels <= 1 || fSurroundWidth <= 0.0f)
 	{
-		for (int channel = 0; channel < totalNumInputChannels; ++channel)
-			fPhaseOffset[channel] = 0.0f;
-	}
-	else if (iStereoMode == 1)
-	{
-		for (int channel = 0; channel < totalNumInputChannels; ++channel)
-			fPhaseOffset[channel] = ((channel % 2) == 0) ? 0.0f : fPhaseOffsetRadians;
-	}
-	else if (totalNumInputChannels == 2)
-	{
-		fPhaseOffset[0] = 0.0f;
-		fPhaseOffset[1] = fPhaseOffsetRadians;
+		for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
+			fPhaseOffset[iChannel] = 0.0f;
 	}
 	else
 	{
-		for (int channel = 0; channel < totalNumInputChannels; ++channel)
-			fPhaseOffset[channel] = fPhaseOffsetRadians * ((float)channel / (float)(totalNumInputChannels - 1));
+		const float fMaxOffset = fPhaseOffsetRadians * fSurroundWidth;
+		for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
+			fPhaseOffset[iChannel] = fMaxOffset * ((float)iChannel / (float)(iTotalNumInputChannels - 1));
 	}
 
-	float presenceFreq = fPresence * 19000.0f + 1000.0f;
-	auto resonanceCoeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, presenceFreq, 1.41f, 1.41f);
+	float fPresenceFreq = fPresence * 19000.0f + 1000.0f;
+	auto resonanceCoeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, fPresenceFreq, 1.41f, 1.41f);
 	auto subCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 60.0f);
 	auto bassLCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 250.0f);
 	auto bassUCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 60.0f);
@@ -476,15 +457,15 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
 	auto midUCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 250.0f);
 	auto trebCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 2000.0f);
 
-	for (int i = 0; i < totalNumInputChannels; ++i)
+	for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
 	{
-		resonanceFilter[i]->coefficients = resonanceCoeffs;
-		subBass[i]->coefficients = subCoeffs;
-		bassLower[i]->coefficients = bassLCoeffs;
-		bassUpper[i]->coefficients = bassUCoeffs;
-		midLower[i]->coefficients = midLCoeffs;
-		midUpper[i]->coefficients = midUCoeffs;
-		treble[i]->coefficients = trebCoeffs;
+		resonanceFilter[iChannel]->coefficients = resonanceCoeffs;
+		subBass[iChannel]->coefficients = subCoeffs;
+		bassLower[iChannel]->coefficients = bassLCoeffs;
+		bassUpper[iChannel]->coefficients = bassUCoeffs;
+		midLower[iChannel]->coefficients = midLCoeffs;
+		midUpper[iChannel]->coefficients = midUCoeffs;
+		treble[iChannel]->coefficients = trebCoeffs;
 	}
 
 	int iChoice[4];
@@ -496,15 +477,15 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
 	float fInputPeak = 0.0f;
 	float fOutputPeak = 0.0f;
 
-	for (int channel = 0; channel < totalNumInputChannels; ++channel)
+	for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
 	{
 		float fChannelScale = 0.0f;
-		if (totalNumInputChannels > 1)
-			fChannelScale = (float)channel / (float)(totalNumInputChannels - 1);
+		if (iTotalNumInputChannels > 1)
+			fChannelScale = (float)iChannel / (float)(iTotalNumInputChannels - 1);
 
-		auto* channelData = buffer.getWritePointer(channel);
+		auto* channelData = buffer.getWritePointer(iChannel);
 
-		for (int iSample = 0; iSample < numSamples; ++iSample)
+		for (int iSample = 0; iSample < iNumSamples; ++iSample)
 		{
 			using SampleType = std::remove_reference_t<decltype(channelData[iSample])>;
 
@@ -516,28 +497,28 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
 
 			float fChannelRate[4];
 			float fChannelDepth[4];
-			for (int b = 0; b < 4; ++b)
+			for (int iBand = 0; iBand < 4; ++iBand)
 			{
-				const float fSmoothRate = smoothedRate[b].getNextValue();
-				const float fSmoothDepth = smoothedDepth[b].getNextValue();
-				fChannelRate[b] = juce::jlimit(1.0f, 15.0f, fSmoothRate + (fRateOffset * fChannelScale));
-				fChannelDepth[b] = juce::jlimit(0.0f, 1.0f, fSmoothDepth + (fDepthOffset * fChannelScale));
+				const float fSmoothRate = smoothedRate[iBand].getNextValue();
+				const float fSmoothDepth = smoothedDepth[iBand].getNextValue();
+				fChannelRate[iBand] = juce::jlimit(0.5f, 16.0f, fSmoothRate + (fRateOffset * fChannelScale));
+				fChannelDepth[iBand] = juce::jlimit(0.0f, 1.0f, fSmoothDepth + (fDepthOffset * fChannelScale));
 			}
 
 			auto input = channelData[iSample];
 			auto dry = input * static_cast<SampleType>(fInGain);
-			auto wet = static_cast<SampleType>(resonanceFilter[channel]->processSample(static_cast<float>(dry)))
+			auto wet = static_cast<SampleType>(resonanceFilter[iChannel]->processSample(static_cast<float>(dry)))
 				* static_cast<SampleType>(1.0f - 0.41f);
 
 			float fBand[4];
-			fBand[0] = subBass[channel]->processSample(static_cast<float>(wet));
-			fBand[1] = bassUpper[channel]->processSample(static_cast<float>(wet))
-				+ bassLower[channel]->processSample(static_cast<float>(dry));
-			fBand[2] = midUpper[channel]->processSample(static_cast<float>(wet))
-				+ midLower[channel]->processSample(static_cast<float>(dry));
-			fBand[3] = treble[channel]->processSample(static_cast<float>(wet));
+			fBand[0] = subBass[iChannel]->processSample(static_cast<float>(wet));
+			fBand[1] = bassUpper[iChannel]->processSample(static_cast<float>(wet))
+				+ bassLower[iChannel]->processSample(static_cast<float>(dry));
+			fBand[2] = midUpper[iChannel]->processSample(static_cast<float>(wet))
+				+ midLower[iChannel]->processSample(static_cast<float>(dry));
+			fBand[3] = treble[iChannel]->processSample(static_cast<float>(wet));
 
-			tremolo.processChannelBands(channel, fBand, fChannelDepth, iChoice, fChannelRate, fSampleRate, fPhaseOffset[channel], fPulseWidth, iDepthMode);
+			tremolo.processChannelBands(iChannel, fBand, fChannelDepth, iChoice, fChannelRate, fSampleRate, fPhaseOffset[iChannel], fPulseWidth, iDepthMode);
 
 			auto summedBands = static_cast<SampleType>(fBand[0]) + static_cast<SampleType>(fBand[1])
 				+ static_cast<SampleType>(fBand[2]) + static_cast<SampleType>(fBand[3]);
@@ -561,14 +542,14 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
 void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<double>& buffer, juce::MidiBuffer&)
 {
 	juce::ScopedNoDenormals noDenormals;
-	auto totalNumInputChannels = getTotalNumInputChannels();
-	auto numSamples = buffer.getNumSamples();
+	auto iTotalNumInputChannels = getTotalNumInputChannels();
+	auto iNumSamples = buffer.getNumSamples();
 
 	const bool bBypass = *apvts.getRawParameterValue("BYPASS") > 0.5f;
 	const bool bTempoSync = *apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
 	const bool bRateLock = *apvts.getRawParameterValue("RATE_LOCK") > 0.5f;
 	const bool bRetriggerOnPlay = *apvts.getRawParameterValue("RETRIGGER_ON_PLAY") > 0.5f;
-	const int iStereoMode = (int)*apvts.getRawParameterValue("STEREO_MODE");
+	const float fSurroundWidth = juce::jlimit(0.0f, 1.0f, apvts.getRawParameterValue("SURROUND_WIDTH")->load());
 	const int iDepthMode = (int)*apvts.getRawParameterValue("DEPTH_MODE");
 
 	const float fInGainTarget = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
@@ -612,78 +593,57 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<double>& buffe
 
 	if (bTempoSync)
 	{
-		const float tempoMultipliers[] = {
-			4.0f, 3.0f, 6.0f, 4.8f, 5.33f,
-			2.0f, 1.5f, 3.0f, 2.4f, 2.67f,
-			1.0f, 0.75f, 1.5f, 1.2f, 1.33f,
-			0.5f, 0.375f, 0.75f, 0.6f, 0.67f,
-			0.25f, 0.1875f, 0.375f, 0.3f, 0.33f,
-			0.125f, 0.09375f, 0.1875f, 0.15f, 0.167f
+		const float fTempoMultipliers[] = {
+			0.25f, 0.166667f, 0.375f,
+			0.5f, 0.333333f, 0.75f,
+			1.0f, 0.666667f, 1.5f,
+			2.0f, 1.333333f, 3.0f,
+			4.0f, 2.666667f, 6.0f
 		};
-		const int divIdx[4] = {
-			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
-			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
-			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
-			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
+		const int iDivIdx[4] = {
+			juce::jlimit(0, 14, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
+			juce::jlimit(0, 14, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
+			juce::jlimit(0, 14, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
+			juce::jlimit(0, 14, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
 		};
 		const float fBeatsPerSec = fSyncBpm / 60.0f;
-		for (int b = 0; b < 4; ++b)
-			fRate[b] = fBeatsPerSec * tempoMultipliers[divIdx[b]];
-	}
-	else
-	{
-		const int divIdx[4] = {
-			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
-			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
-			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
-			juce::jlimit(0, 29, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
-		};
-		for (int b = 0; b < 4; ++b)
-			fRate[b] = 0.5f + (divIdx[b] / 29.0f) * 15.5f;
+		for (int iBand = 0; iBand < 4; ++iBand)
+			fRate[iBand] = fBeatsPerSec * fTempoMultipliers[iDivIdx[iBand]];
 	}
 
-	for (int b = 0; b < 4; ++b)
-		fRate[b] = juce::jlimit(1.0f, 15.0f, fRate[b] * fMasterRate);
+	for (int iBand = 0; iBand < 4; ++iBand)
+		fRate[iBand] = juce::jlimit(0.5f, 16.0f, fRate[iBand] * fMasterRate);
 
 	if (bRateLock)
-		for (int b = 1; b < 4; ++b)
-			fRate[b] = fRate[0];
+		for (int iBand = 1; iBand < 4; ++iBand)
+			fRate[iBand] = fRate[0];
 
 	fDepth[0] = *apvts.getRawParameterValue("SUB_TREM_DEPTH");
 	fDepth[1] = *apvts.getRawParameterValue("BASS_TREM_DEPTH");
 	fDepth[2] = *apvts.getRawParameterValue("MID_TREM_DEPTH");
 	fDepth[3] = *apvts.getRawParameterValue("TREBLE_TREM_DEPTH");
 
-	for (int b = 0; b < 4; ++b)
+	for (int iBand = 0; iBand < 4; ++iBand)
 	{
-		smoothedRate[b].setTargetValue(fRate[b]);
-		smoothedDepth[b].setTargetValue(fDepth[b]);
+		smoothedRate[iBand].setTargetValue(fRate[iBand]);
+		smoothedDepth[iBand].setTargetValue(fDepth[iBand]);
 	}
 
 	const float fPhaseOffsetRadians = juce::degreesToRadians(fPhaseOffsetDegrees);
-	if (iStereoMode == 0 || totalNumInputChannels <= 1)
+	if (iTotalNumInputChannels <= 1 || fSurroundWidth <= 0.0f)
 	{
-		for (int channel = 0; channel < totalNumInputChannels; ++channel)
-			fPhaseOffset[channel] = 0.0f;
-	}
-	else if (iStereoMode == 1)
-	{
-		for (int channel = 0; channel < totalNumInputChannels; ++channel)
-			fPhaseOffset[channel] = ((channel % 2) == 0) ? 0.0f : fPhaseOffsetRadians;
-	}
-	else if (totalNumInputChannels == 2)
-	{
-		fPhaseOffset[0] = 0.0f;
-		fPhaseOffset[1] = fPhaseOffsetRadians;
+		for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
+			fPhaseOffset[iChannel] = 0.0f;
 	}
 	else
 	{
-		for (int channel = 0; channel < totalNumInputChannels; ++channel)
-			fPhaseOffset[channel] = fPhaseOffsetRadians * ((float)channel / (float)(totalNumInputChannels - 1));
+		const float fMaxOffset = fPhaseOffsetRadians * fSurroundWidth;
+		for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
+			fPhaseOffset[iChannel] = fMaxOffset * ((float)iChannel / (float)(iTotalNumInputChannels - 1));
 	}
 
-	float presenceFreq = fPresence * 19000.0f + 1000.0f;
-	auto resonanceCoeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, presenceFreq, 1.41f, 1.41f);
+	float fPresenceFreq = fPresence * 19000.0f + 1000.0f;
+	auto resonanceCoeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, fPresenceFreq, 1.41f, 1.41f);
 	auto subCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 60.0f);
 	auto bassLCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 250.0f);
 	auto bassUCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 60.0f);
@@ -691,15 +651,15 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<double>& buffe
 	auto midUCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 250.0f);
 	auto trebCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 2000.0f);
 
-	for (int i = 0; i < totalNumInputChannels; ++i)
+	for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
 	{
-		resonanceFilter[i]->coefficients = resonanceCoeffs;
-		subBass[i]->coefficients = subCoeffs;
-		bassLower[i]->coefficients = bassLCoeffs;
-		bassUpper[i]->coefficients = bassUCoeffs;
-		midLower[i]->coefficients = midLCoeffs;
-		midUpper[i]->coefficients = midUCoeffs;
-		treble[i]->coefficients = trebCoeffs;
+		resonanceFilter[iChannel]->coefficients = resonanceCoeffs;
+		subBass[iChannel]->coefficients = subCoeffs;
+		bassLower[iChannel]->coefficients = bassLCoeffs;
+		bassUpper[iChannel]->coefficients = bassUCoeffs;
+		midLower[iChannel]->coefficients = midLCoeffs;
+		midUpper[iChannel]->coefficients = midUCoeffs;
+		treble[iChannel]->coefficients = trebCoeffs;
 	}
 
 	int iChoice[4];
@@ -711,15 +671,15 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<double>& buffe
 	float fInputPeak = 0.0f;
 	float fOutputPeak = 0.0f;
 
-	for (int channel = 0; channel < totalNumInputChannels; ++channel)
+	for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
 	{
 		float fChannelScale = 0.0f;
-		if (totalNumInputChannels > 1)
-			fChannelScale = (float)channel / (float)(totalNumInputChannels - 1);
+		if (iTotalNumInputChannels > 1)
+			fChannelScale = (float)iChannel / (float)(iTotalNumInputChannels - 1);
 
-		auto* channelData = buffer.getWritePointer(channel);
+		auto* channelData = buffer.getWritePointer(iChannel);
 
-		for (int iSample = 0; iSample < numSamples; ++iSample)
+		for (int iSample = 0; iSample < iNumSamples; ++iSample)
 		{
 			using SampleType = std::remove_reference_t<decltype(channelData[iSample])>;
 
@@ -731,28 +691,28 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<double>& buffe
 
 			float fChannelRate[4];
 			float fChannelDepth[4];
-			for (int b = 0; b < 4; ++b)
+			for (int iBand = 0; iBand < 4; ++iBand)
 			{
-				const float fSmoothRate = smoothedRate[b].getNextValue();
-				const float fSmoothDepth = smoothedDepth[b].getNextValue();
-				fChannelRate[b] = juce::jlimit(1.0f, 15.0f, fSmoothRate + (fRateOffset * fChannelScale));
-				fChannelDepth[b] = juce::jlimit(0.0f, 1.0f, fSmoothDepth + (fDepthOffset * fChannelScale));
+				const float fSmoothRate = smoothedRate[iBand].getNextValue();
+				const float fSmoothDepth = smoothedDepth[iBand].getNextValue();
+				fChannelRate[iBand] = juce::jlimit(0.5f, 16.0f, fSmoothRate + (fRateOffset * fChannelScale));
+				fChannelDepth[iBand] = juce::jlimit(0.0f, 1.0f, fSmoothDepth + (fDepthOffset * fChannelScale));
 			}
 
 			auto input = channelData[iSample];
 			auto dry = input * static_cast<SampleType>(fInGain);
-			auto wet = static_cast<SampleType>(resonanceFilter[channel]->processSample(static_cast<float>(dry)))
+			auto wet = static_cast<SampleType>(resonanceFilter[iChannel]->processSample(static_cast<float>(dry)))
 				* static_cast<SampleType>(1.0f - 0.41f);
 
 			float fBand[4];
-			fBand[0] = subBass[channel]->processSample(static_cast<float>(wet));
-			fBand[1] = bassUpper[channel]->processSample(static_cast<float>(wet))
-				+ bassLower[channel]->processSample(static_cast<float>(dry));
-			fBand[2] = midUpper[channel]->processSample(static_cast<float>(wet))
-				+ midLower[channel]->processSample(static_cast<float>(dry));
-			fBand[3] = treble[channel]->processSample(static_cast<float>(wet));
+			fBand[0] = subBass[iChannel]->processSample(static_cast<float>(wet));
+			fBand[1] = bassUpper[iChannel]->processSample(static_cast<float>(wet))
+				+ bassLower[iChannel]->processSample(static_cast<float>(dry));
+			fBand[2] = midUpper[iChannel]->processSample(static_cast<float>(wet))
+				+ midLower[iChannel]->processSample(static_cast<float>(dry));
+			fBand[3] = treble[iChannel]->processSample(static_cast<float>(wet));
 
-			tremolo.processChannelBands(channel, fBand, fChannelDepth, iChoice, fChannelRate, fSampleRate, fPhaseOffset[channel], fPulseWidth, iDepthMode);
+			tremolo.processChannelBands(iChannel, fBand, fChannelDepth, iChoice, fChannelRate, fSampleRate, fPhaseOffset[iChannel], fPulseWidth, iDepthMode);
 
 			auto summedBands = static_cast<SampleType>(fBand[0]) + static_cast<SampleType>(fBand[1])
 				+ static_cast<SampleType>(fBand[2]) + static_cast<SampleType>(fBand[3]);

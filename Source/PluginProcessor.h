@@ -53,8 +53,8 @@ public:
     juce::UndoManager undoManager;
 
     struct Preset {
-        juce::String name;
-        std::vector<float> values;
+        juce::String sName;
+        std::vector<float> fValues;
     };
 
     void loadPreset(int index);
@@ -89,7 +89,7 @@ private:
     juce::LinearSmoothedValue<float> smoothedDepth[4];
 
     std::atomic<float> fTapTempoBpm { 120.0f };
-    std::atomic<double> fLastTapTimeMs { 0.0 };
+    std::atomic<double> dLastTapTimeMs { 0.0 };
     std::atomic<float> fInputMeterLevel { 0.0f };
     std::atomic<float> fOutputMeterLevel { 0.0f };
     bool bWasPlaying = false;

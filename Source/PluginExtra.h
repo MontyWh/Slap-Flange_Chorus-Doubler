@@ -20,8 +20,8 @@ class TremoloProcess
 public:
 	TremoloProcess()
 	{
-		for (int b = 0; b < 4; ++b)
-			fPhaseInc[b] = 0.0f;
+		for (int iBand = 0; iBand < 4; ++iBand)
+			fPhaseInc[iBand] = 0.0f;
 	}
 
 	// Reset phase positions (called in prepareToPlay)
@@ -33,9 +33,8 @@ public:
 	// Compute phase increments for this block
 	void computePhaseIncrements(float rate[4], float sampleRate)
 	{
-
-		for (int b = 0; b < 4; ++b)
-			fPhaseInc[b] = (DOUBLE_PI * rate[b]) / sampleRate;
+		for (int iBand = 0; iBand < 4; ++iBand)
+			fPhaseInc[iBand] = (DOUBLE_PI * rate[iBand]) / sampleRate;
 	}
 
 	void sineProcess(const float phase, float& osc)
@@ -58,11 +57,8 @@ public:
 
 	void pulseProcess(const float phase, float pulseWidth, float& osc)
 	{
-		const float p = phase;
-
-		osc = (p < pulseWidth * DOUBLE_PI) ? 1.0f : -1.0f;
+		osc = (phase < pulseWidth * DOUBLE_PI) ? 1.0f : -1.0f;
 	}
-
 
 	void squareProcess(const float phase, float& osc)
 	{
@@ -72,48 +68,48 @@ public:
 
 	void retrigger(float startPhase)
 	{
-		for (auto& channelPhases : fPhasePos)
-			for (int b = 0; b < 4; ++b)
-				channelPhases[b] = startPhase;
+		for (auto& fChannelPhases : fPhasePos)
+			for (int iBand = 0; iBand < 4; ++iBand)
+				fChannelPhases[iBand] = startPhase;
 	}
 
 	// Apply tremolo to each band
 	void processBands(int channel, float band[4], float depth[4], int choice[4], float offset, float pulseWidth, int depthMode)
 	{
-		for (int b = 0; b < 4; ++b)
+		for (int iBand = 0; iBand < 4; ++iBand)
 		{
-			fPhasePos[channel][b] += fPhaseInc[b];
-			if (fPhasePos[channel][b] > DOUBLE_PI)
-				fPhasePos[channel][b] -= DOUBLE_PI;
+			fPhasePos[channel][iBand] += fPhaseInc[iBand];
+			if (fPhasePos[channel][iBand] > DOUBLE_PI)
+				fPhasePos[channel][iBand] -= DOUBLE_PI;
 
-			float fPhase = fPhasePos[channel][b] + offset;
+			float fPhase = fPhasePos[channel][iBand] + offset;
 			while (fPhase > DOUBLE_PI)
 				fPhase -= DOUBLE_PI;
 
 			float fOsc = 0.0f;
-			if (choice[b] == 0)
+			if (choice[iBand] == 0)
 				sineProcess(fPhase, fOsc);
-			else if (choice[b] == 1)
+			else if (choice[iBand] == 1)
 				triangleProcess(fPhase, fOsc);
-			else if (choice[b] == 2)
+			else if (choice[iBand] == 2)
 				sawtoothProcess(fPhase, fOsc);
-			else if (choice[b] == 3)
+			else if (choice[iBand] == 3)
 				pulseProcess(fPhase, pulseWidth, fOsc);
-			else if (choice[b] == 4)
+			else if (choice[iBand] == 4)
 				squareProcess(fPhase, fOsc);
 
 			float fTrem = 1.0f;
 			if (depthMode == 0)
 			{
 				const float fUnipolar = (fOsc + 1.0f) * 0.5f;
-				fTrem = (1.0f - depth[b]) + (depth[b] * fUnipolar);
+				fTrem = (1.0f - depth[iBand]) + (depth[iBand] * fUnipolar);
 			}
 			else
 			{
-				fTrem = std::max(0.0f, 1.0f + (fOsc * depth[b]));
+				fTrem = std::max(0.0f, 1.0f + (fOsc * depth[iBand]));
 			}
 
-			band[b] *= fTrem;
+			band[iBand] *= fTrem;
 		}
 	}
 

@@ -14,7 +14,7 @@
 //==============================================================================
 // 22 parameters total (input + presence + tremolo types + master rate + rates + depths + offsets + pulse + wet + output + bypass)
 //==============================================================================
-const int NUM_OF_PARAMETERS = 22;
+const int iNumParameters = 22;
 
 //==============================================================================
 class AutoTremolandoAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer
@@ -28,10 +28,11 @@ public:
     void timerCallback() override;
 
 private:
-    // Sliders for all 21 parameters
-    juce::Slider parameters[NUM_OF_PARAMETERS];
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> paramAttach[NUM_OF_PARAMETERS];
-    juce::Label labels[NUM_OF_PARAMETERS];
+    void updateChannelSpreadUiState();
+    // Sliders for all 22 parameters
+    juce::Slider parameters[iNumParameters];
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> paramAttach[iNumParameters];
+    juce::Label labels[iNumParameters];
 
     // Tremolo type menus
     juce::ComboBox subTremMenu, bassTremMenu, midTremMenu, trebleTremMenu;
@@ -56,21 +57,25 @@ private:
     juce::TextButton tempoSyncSlider;
     juce::Label tempoSyncLabel;
     bool bCurrentSync = true;  // Track sync state for label updates
+    bool bUpdatingLinkedRates = false;
 
     // Basic mode controls
     juce::TextButton rateLockButton;
     juce::TextButton retriggerButton;
     juce::Label rateLockLabel, retriggerLabel;
 
-    juce::ComboBox stereoModeMenu, depthModeMenu;
-    juce::Label stereoModeLabel, depthModeLabel;
+    juce::Slider surroundWidthSlider;
+    juce::Label surroundWidthLabel;
+    juce::ComboBox depthModeMenu;
+    juce::Label depthModeLabel;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> rateLockAttach, retriggerAttach;
-    std::unique_ptr<MenuAttachment> stereoModeAttach, depthModeAttach;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> surroundWidthAttach;
+    std::unique_ptr<MenuAttachment> depthModeAttach;
 
     // Basic meter display
-    double fInputMeterDisplay = 0.0;
-    double fOutputMeterDisplay = 0.0;
+    double dInputMeterDisplay = 0.0;
+    double dOutputMeterDisplay = 0.0;
     juce::ProgressBar inputMeterBar;
     juce::ProgressBar outputMeterBar;
     juce::Label inputMeterLabel, outputMeterLabel;

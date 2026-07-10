@@ -10,7 +10,7 @@ namespace
     constexpr float fMinUiScale = 0.55f;
     constexpr float fMaxUiScale = 1.60f;
 
-    float getScreenLinkedUiScale()
+    float fGetScreenLinkedUiScale()
     {
         if (auto* display = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
         {
@@ -23,34 +23,34 @@ namespace
         return 1.0f;
     }
 
-    int scaled(const int value, const float fUiScale)
+    int iScaled(const int value, const float uiScale)
     {
-        return juce::roundToInt(static_cast<float>(value) * fUiScale);
+        return juce::roundToInt(static_cast<float>(value) * uiScale);
     }
 }
 
 // Helper for consistent slider setup
-static void setupSlider(juce::Slider& s, const float fUiScale)
+static void setupSlider(juce::Slider& s, const float uiScale)
 {
     s.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-    s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, scaled(60, fUiScale), scaled(20, fUiScale));
+    s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, iScaled(60, uiScale), iScaled(20, uiScale));
 }
 
 //==============================================================================
 
 AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremolandoAudioProcessor& p)
     : AudioProcessorEditor(&p),
-      inputMeterBar(fInputMeterDisplay),
-      outputMeterBar(fOutputMeterDisplay),
+      inputMeterBar(dInputMeterDisplay),
+      outputMeterBar(dOutputMeterDisplay),
       audioProcessor(p)
 {
-    const float fUiScale = getScreenLinkedUiScale();
-    setSize(scaled(iBaseEditorWidth, fUiScale), scaled(iBaseEditorHeight, fUiScale));
+    const float fUiScale = fGetScreenLinkedUiScale();
+    setSize(iScaled(iBaseEditorWidth, fUiScale), iScaled(iBaseEditorHeight, fUiScale));
 
     //======================================================================
     // Parameter IDs in DSP signal-chain order
     //======================================================================
-    const juce::String paramIDs[NUM_OF_PARAMETERS] =
+    const juce::String sParamIDs[iNumParameters] =
     {
         "INPUT_GAIN", "PRESENCE",
         "SUB_TREMOLO", "BASS_TREMOLO", "MID_TREMOLO", "TREBLE_TREMOLO",
@@ -61,7 +61,7 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
         "WET", "OUTPUT_GAIN", "BYPASS"
     };
 
-    const juce::String paramLabels[NUM_OF_PARAMETERS] =
+    const juce::String sParamLabels[iNumParameters] =
     {
         "Input", "Presence",
         "Sub Type", "Bass Type", "Mid Type", "Treble Type",
@@ -75,7 +75,7 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
     //======================================================================
     // Create sliders + labels
     //======================================================================
-    for (int i = 0; i < NUM_OF_PARAMETERS; ++i)
+    for (int i = 0; i < iNumParameters; ++i)
     {
         setupSlider(parameters[i], fUiScale);
         addAndMakeVisible(parameters[i]);
@@ -83,19 +83,15 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
         if (i == 6 || (i >= 7 && i <= 10))
             parameters[i].setTextValueSuffix(" Hz");
 
-        labels[i].setText(paramLabels[i], juce::dontSendNotification);
+        labels[i].setText(sParamLabels[i], juce::dontSendNotification);
         labels[i].setJustificationType(juce::Justification::centred);
         addAndMakeVisible(labels[i]);
 
         paramAttach[i] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-            audioProcessor.apvts, paramIDs[i], parameters[i]);
+            audioProcessor.apvts, sParamIDs[i], parameters[i]);
     }
 
-<<<<<<< Updated upstream
-    setupSlider(startPhaseSlider);
-=======
     setupSlider(startPhaseSlider, fUiScale);
->>>>>>> Stashed changes
     startPhaseSlider.setTextValueSuffix(" deg");
     addAndMakeVisible(startPhaseSlider);
 
@@ -112,8 +108,8 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
     {
         &subTremMenu, &bassTremMenu, &midTremMenu, &trebleTremMenu
     };
-    const juce::StringArray waveNames{ "Sine", "Triangle", "Sawtooth", "Pulse", "Square" };
-    for (auto* m : menus) m->addItemList(waveNames, 1);
+    const juce::StringArray sWaveNames{ "Sine", "Triangle", "Sawtooth", "Pulse", "Square" };
+    for (auto* m : menus) m->addItemList(sWaveNames, 1);
 
 
     addAndMakeVisible(subTremMenu);
@@ -155,8 +151,8 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
 
     presetMenu.onChange = [this]()
         {
-            int index = presetMenu.getSelectedId() - 1;
-            audioProcessor.loadPreset(index);
+            int iIndex = presetMenu.getSelectedId() - 1;
+            audioProcessor.loadPreset(iIndex);
         };
 
     tapTempoButton.setButtonText("Tap Tempo");
@@ -231,28 +227,21 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
             // Update value labels to reflect new interpretation
             auto updateLabel = [bNewSync](juce::Slider& slider, juce::Label& valueLabel)
                 {
-                    int idx = juce::roundToInt(slider.getValue());
+                    int iIdx = juce::roundToInt(slider.getValue());
                     if (bNewSync)
                     {
-                        const juce::String tempoLabels[] = {
-                            // 1/16
-                            "1/16", "1/16t", "1/16d", "1/16 swing", "1/16 shuffle",
-                            // 1/8
-                            "1/8", "1/8t", "1/8d", "1/8 swing", "1/8 shuffle",
-                            // 1/4
-                            "1/4", "1/4t", "1/4d", "1/4 swing", "1/4 shuffle",
-                            // 1/2
-                            "1/2", "1/2t", "1/2d", "1/2 swing", "1/2 shuffle",
-                            // 1/1
-                            "1/1", "1/1t", "1/1d", "1/1 swing", "1/1 shuffle",
-                            // 2/1
-                            "2/1", "2/1t", "2/1d", "2/1 swing", "2/1 shuffle"
+                        const juce::String sTempoLabels[] = {
+                            "1/1", "1/1d", "1/1t",
+                            "1/2", "1/2d", "1/2t",
+                            "1/4", "1/4d", "1/4t",
+                            "1/8", "1/8d", "1/8t",
+                            "1/16", "1/16d", "1/16t"
                         };
-                        valueLabel.setText(tempoLabels[idx], juce::dontSendNotification);
+                        valueLabel.setText(sTempoLabels[iIdx], juce::dontSendNotification);
                     }
                     else
                     {
-                        float fHz = 0.5f + (idx / 29.0f) * 15.5f;
+                        float fHz = 0.5f + (iIdx / 14.0f) * 15.5f;
                         valueLabel.setText(juce::String(fHz, 2) + " Hz", juce::dontSendNotification);
                     }
                 };
@@ -267,25 +256,40 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
     rateLockLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(rateLockLabel);
 
-    rateLockButton.setButtonText("Link");
+    rateLockButton.setClickingTogglesState(true);
     addAndMakeVisible(rateLockButton);
     rateLockAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(audioProcessor.apvts, "RATE_LOCK", rateLockButton);
+    rateLockButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::darkcyan);
+    rateLockButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+    rateLockButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    rateLockButton.setTooltip("Links Bass, Mid and Treble to the Sub rate or division");
+    rateLockButton.setButtonText(rateLockButton.getToggleState() ? "Linked" : "Unlinked");
 
     retriggerLabel.setText("Retrigger", juce::dontSendNotification);
     retriggerLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(retriggerLabel);
 
-    retriggerButton.setButtonText("On Play");
+    retriggerButton.setClickingTogglesState(true);
+    retriggerButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::darkcyan);
+    retriggerButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkslategrey);
+    retriggerButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+    retriggerButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    retriggerButton.setTooltip("When enabled, tremolo restarts from Start Phase each time playback starts");
     addAndMakeVisible(retriggerButton);
     retriggerAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(audioProcessor.apvts, "RETRIGGER_ON_PLAY", retriggerButton);
 
-    stereoModeLabel.setText("Stereo Mode", juce::dontSendNotification);
-    stereoModeLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(stereoModeLabel);
+    rateLockButton.setToggleState(*audioProcessor.apvts.getRawParameterValue("RATE_LOCK") > 0.5f, juce::dontSendNotification);
+    retriggerButton.setToggleState(*audioProcessor.apvts.getRawParameterValue("RETRIGGER_ON_PLAY") > 0.5f, juce::dontSendNotification);
+    retriggerButton.setButtonText(retriggerButton.getToggleState() ? "Retrig" : "Free");
 
-    stereoModeMenu.addItemList({ "Mono", "Ping Pong", "Spread" }, 1);
-    addAndMakeVisible(stereoModeMenu);
-    stereoModeAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "STEREO_MODE", stereoModeMenu);
+    surroundWidthLabel.setText("Surround Width", juce::dontSendNotification);
+    surroundWidthLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(surroundWidthLabel);
+
+    setupSlider(surroundWidthSlider, fUiScale);
+    surroundWidthSlider.setTextValueSuffix(" %");
+    addAndMakeVisible(surroundWidthSlider);
+    surroundWidthAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "SURROUND_WIDTH", surroundWidthSlider);
 
     depthModeLabel.setText("Depth Mode", juce::dontSendNotification);
     depthModeLabel.setJustificationType(juce::Justification::centred);
@@ -314,7 +318,7 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
         {
             slider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
             slider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
-            slider.setRange(0.0, 29.0, 1.0);
+            slider.setRange(0.0, 14.0, 1.0);
             slider.setColour(juce::Slider::rotarySliderFillColourId, juce::Colours::cyan);
             addAndMakeVisible(slider);
 
@@ -340,31 +344,22 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
         {
             auto updateLabel = [this](juce::Slider& slider, juce::Label& valueLabel)
                 {
-                    int idx = juce::roundToInt(slider.getValue());
+                    int iIdx = juce::roundToInt(slider.getValue());
                     if (bCurrentSync)
                     {
-                        // Tempo mode: note divisions interleaved by note value
-                        // Each note value: straight, triplet, dotted, swing, shuffle
-                        const juce::String tempoLabels[] = { 
-                            // 1/16
-                            "1/16", "1/16t", "1/16d", "1/16 swing", "1/16 shuffle",
-                            // 1/8
-                            "1/8", "1/8t", "1/8d", "1/8 swing", "1/8 shuffle",
-                            // 1/4
-                            "1/4", "1/4t", "1/4d", "1/4 swing", "1/4 shuffle",
-                            // 1/2
-                            "1/2", "1/2t", "1/2d", "1/2 swing", "1/2 shuffle",
-                            // 1/1
-                            "1/1", "1/1t", "1/1d", "1/1 swing", "1/1 shuffle",
-                            // 2/1
-                            "2/1", "2/1t", "2/1d", "2/1 swing", "2/1 shuffle"
+                        const juce::String sTempoLabels[] = {
+                            "1/1", "1/1d", "1/1t",
+                            "1/2", "1/2d", "1/2t",
+                            "1/4", "1/4d", "1/4t",
+                            "1/8", "1/8d", "1/8t",
+                            "1/16", "1/16d", "1/16t"
                         };
-                        valueLabel.setText(tempoLabels[idx], juce::dontSendNotification);
+                        valueLabel.setText(sTempoLabels[iIdx], juce::dontSendNotification);
                     }
                     else
                     {
                         // Time mode: Hz (mapped from 0.5 Hz to 16 Hz)
-                        float fHz = 0.5f + (idx / 29.0f) * 15.5f;
+                        float fHz = 0.5f + (iIdx / 14.0f) * 15.5f;
                         valueLabel.setText(juce::String(fHz, 2) + " Hz", juce::dontSendNotification);
                     }
                 };
@@ -375,49 +370,111 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
             updateLabel(trebleNoteDivSlider, trebleNoteDivValueLabel);
         };
 
-    // Update labels initially
-    subNoteDivLabel.setText("Sub Div", juce::dontSendNotification);
-    bassNoteDivLabel.setText("Bass Div", juce::dontSendNotification);
-    midNoteDivLabel.setText("Mid Div", juce::dontSendNotification);
-    trebleNoteDivLabel.setText("Treble Div", juce::dontSendNotification);
-    updateDivisionLabels();
-
-    // Add slider value change listeners
-    auto makeSliderListener = [updateDivisionLabels](juce::Slider& slider)
+    auto syncLinkedRateControls = [this]()
         {
-            slider.onValueChange = [updateDivisionLabels]() { updateDivisionLabels(); };
+            if (bUpdatingLinkedRates || !rateLockButton.getToggleState())
+                return;
+
+            const juce::ScopedValueSetter<bool> updatingLinkedRates(bUpdatingLinkedRates, true);
+            const double dSubRate = parameters[7].getValue();
+
+            parameters[8].setValue(dSubRate, juce::sendNotificationSync);
+            parameters[9].setValue(dSubRate, juce::sendNotificationSync);
+            parameters[10].setValue(dSubRate, juce::sendNotificationSync);
         };
 
-    makeSliderListener(subNoteDivSlider);
-    makeSliderListener(bassNoteDivSlider);
-    makeSliderListener(midNoteDivSlider);
-    makeSliderListener(trebleNoteDivSlider);
+    auto syncLinkedTimeControls = [this]()
+        {
+            if (bUpdatingLinkedRates || !rateLockButton.getToggleState())
+                return;
 
-    // Initialize division menus and labels based on current sync mode
+            const juce::ScopedValueSetter<bool> updatingLinkedRates(bUpdatingLinkedRates, true);
+            const double dSubDivision = subNoteDivSlider.getValue();
+
+            bassNoteDivSlider.setValue(dSubDivision, juce::sendNotificationSync);
+            midNoteDivSlider.setValue(dSubDivision, juce::sendNotificationSync);
+            trebleNoteDivSlider.setValue(dSubDivision, juce::sendNotificationSync);
+        };
+
+    auto updateSyncModeUi = [this, updateDivisionLabels]()
+        {
+            tempoSyncSlider.setButtonText(bCurrentSync ? "TEMPO" : "TIME");
+
+            if (bCurrentSync)
+            {
+                subNoteDivLabel.setText("Sub Div", juce::dontSendNotification);
+                bassNoteDivLabel.setText("Bass Div", juce::dontSendNotification);
+                midNoteDivLabel.setText("Mid Div", juce::dontSendNotification);
+                trebleNoteDivLabel.setText("Treble Div", juce::dontSendNotification);
+            }
+            else
+            {
+                subNoteDivLabel.setText("Sub Time", juce::dontSendNotification);
+                bassNoteDivLabel.setText("Bass Time", juce::dontSendNotification);
+                midNoteDivLabel.setText("Mid Time", juce::dontSendNotification);
+                trebleNoteDivLabel.setText("Treble Time", juce::dontSendNotification);
+            }
+
+            updateDivisionLabels();
+        };
+
+    // Add slider value change listeners
+    auto makeDivisionSliderListener = [syncLinkedTimeControls, updateDivisionLabels](juce::Slider& slider)
+        {
+            slider.onValueChange = [syncLinkedTimeControls, updateDivisionLabels]()
+                {
+                    syncLinkedTimeControls();
+                    updateDivisionLabels();
+                };
+        };
+
+    auto makeRateSliderListener = [syncLinkedRateControls](juce::Slider& slider)
+        {
+            slider.onValueChange = [syncLinkedRateControls]()
+                {
+                    syncLinkedRateControls();
+                };
+        };
+
+    makeDivisionSliderListener(subNoteDivSlider);
+    makeDivisionSliderListener(bassNoteDivSlider);
+    makeDivisionSliderListener(midNoteDivSlider);
+    makeDivisionSliderListener(trebleNoteDivSlider);
+
+    makeRateSliderListener(parameters[7]);
+    makeRateSliderListener(parameters[8]);
+    makeRateSliderListener(parameters[9]);
+    makeRateSliderListener(parameters[10]);
+
+    rateLockButton.onStateChange = [this, syncLinkedRateControls, syncLinkedTimeControls, updateDivisionLabels]()
+        {
+            rateLockButton.setButtonText(rateLockButton.getToggleState() ? "Linked" : "Unlinked");
+            syncLinkedRateControls();
+            syncLinkedTimeControls();
+            updateDivisionLabels();
+        };
+
+    retriggerButton.onStateChange = [this]()
+        {
+            retriggerButton.setButtonText(retriggerButton.getToggleState() ? "Retrig" : "Free");
+        };
+
+    tempoSyncSlider.onClick = [this, updateSyncModeUi]()
+        {
+            bool bCurrentSyncState = *audioProcessor.apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
+            bool bNewSync = !bCurrentSyncState;
+            if (auto* param = audioProcessor.apvts.getParameter("TEMPO_SYNC"))
+                param->setValueNotifyingHost(bNewSync ? 1.0f : 0.0f);
+
+            bCurrentSync = bNewSync;
+            updateSyncModeUi();
+        };
+
+    // Initialise division menus and labels based on current sync mode
     bCurrentSync = *audioProcessor.apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
-    tempoSyncSlider.setButtonText(bCurrentSync ? "TEMPO" : "TIME");
+    updateSyncModeUi();
 
-    if (!bCurrentSync)
-    {
-        subNoteDivLabel.setText("Sub Time", juce::dontSendNotification);
-        bassNoteDivLabel.setText("Bass Time", juce::dontSendNotification);
-        midNoteDivLabel.setText("Mid Time", juce::dontSendNotification);
-        trebleNoteDivLabel.setText("Treble Time", juce::dontSendNotification);
-    }
-
-    //======================================================================
-    // Disable channel spread controls in mono
-    //======================================================================
-    bool bEnableChannelSpread = audioProcessor.getTotalNumOutputChannels() > 1;
-    float fChannelSpreadAlpha = bEnableChannelSpread ? 1.0f : 0.5f;
-
-    for (int i = 15; i <= 17; ++i)
-    {
-        parameters[i].setEnabled(bEnableChannelSpread);
-        labels[i].setEnabled(bEnableChannelSpread);
-        parameters[i].setAlpha(fChannelSpreadAlpha);
-        labels[i].setAlpha(fChannelSpreadAlpha);
-    }
+    updateChannelSpreadUiState();
 }
 
 //==============================================================================
@@ -426,10 +483,30 @@ AutoTremolandoAudioProcessorEditor::~AutoTremolandoAudioProcessorEditor() {}
 
 //==============================================================================
 
+void AutoTremolandoAudioProcessorEditor::updateChannelSpreadUiState()
+{
+    const bool bEnableChannelSpread = audioProcessor.getTotalNumOutputChannels() > 1;
+    const float fChannelSpreadAlpha = bEnableChannelSpread ? 1.0f : 0.35f;
+
+    for (int i = 15; i <= 17; ++i)
+    {
+        parameters[i].setEnabled(bEnableChannelSpread);
+        labels[i].setEnabled(bEnableChannelSpread);
+        parameters[i].setAlpha(fChannelSpreadAlpha);
+        labels[i].setAlpha(fChannelSpreadAlpha);
+    }
+
+    surroundWidthSlider.setEnabled(bEnableChannelSpread);
+    surroundWidthLabel.setEnabled(bEnableChannelSpread);
+    surroundWidthSlider.setAlpha(fChannelSpreadAlpha);
+    surroundWidthLabel.setAlpha(fChannelSpreadAlpha);
+}
+
 void AutoTremolandoAudioProcessorEditor::timerCallback()
 {
-    fInputMeterDisplay = juce::jlimit(0.0, 1.0, (double)audioProcessor.getInputMeterLevel());
-    fOutputMeterDisplay = juce::jlimit(0.0, 1.0, (double)audioProcessor.getOutputMeterLevel());
+    updateChannelSpreadUiState();
+    dInputMeterDisplay = juce::jlimit(0.0, 1.0, (double)audioProcessor.getInputMeterLevel());
+    dOutputMeterDisplay = juce::jlimit(0.0, 1.0, (double)audioProcessor.getOutputMeterLevel());
     repaint();
 }
 
@@ -448,238 +525,197 @@ void AutoTremolandoAudioProcessorEditor::resized()
         static_cast<float>(getWidth()) / static_cast<float>(iBaseEditorWidth),
         static_cast<float>(getHeight()) / static_cast<float>(iBaseEditorHeight));
 
-    const int margin = scaled(20, fUiScale);
-    const int sliderW = scaled(120, fUiScale);
-    const int sliderH = scaled(120, fUiScale);
-    const int labelH = scaled(20, fUiScale);
+    const int iMargin = iScaled(20, fUiScale);
+    const int iSliderW = iScaled(120, fUiScale);
+    const int iSliderH = iScaled(120, fUiScale);
+    const int iLabelH = iScaled(20, fUiScale);
 
     //==============================================================
     // Sliders in literal DSP signal-chain order (left grid)
     //==============================================================
-    int x = margin;
-    int y = scaled(60, fUiScale);
+    int iX = iMargin;
+    int iY = iScaled(60, fUiScale);
 
     // Row 1 (4 items) - Input, Presence, Pulse Width, Start Phase
-    parameters[0].setBounds(x, y, sliderW, sliderH);   // Input Gain
-    labels[0].setBounds(x, y + sliderH, sliderW, labelH);
-    x += sliderW + margin;
+    parameters[0].setBounds(iX, iY, iSliderW, iSliderH);   // Input Gain
+    labels[0].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
+    iX += iSliderW + iMargin;
 
-    parameters[1].setBounds(x, y, sliderW, sliderH);   // Presence
-    labels[1].setBounds(x, y + sliderH, sliderW, labelH);
-    x += sliderW + margin;
+    parameters[1].setBounds(iX, iY, iSliderW, iSliderH);   // Presence
+    labels[1].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
+    iX += iSliderW + iMargin;
 
-    parameters[18].setBounds(x, y, sliderW, sliderH);  // Pulse Width
-    labels[18].setBounds(x, y + sliderH, sliderW, labelH);
-    x += sliderW + margin;
+    parameters[18].setBounds(iX, iY, iSliderW, iSliderH);  // Pulse Width
+    labels[18].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
+    iX += iSliderW + iMargin;
 
-    startPhaseSlider.setBounds(x, y, sliderW, sliderH);
-    startPhaseLabel.setBounds(x, y + sliderH, sliderW, labelH);
+    startPhaseSlider.setBounds(iX, iY, iSliderW, iSliderH);
+    startPhaseLabel.setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
 
     // Row 2 (4 items) - Rates grouped
-    x = margin;
-    y += sliderH + labelH + margin;
+    iX = iMargin;
+    iY += iSliderH + iLabelH + iMargin;
 
-    parameters[7].setBounds(x, y, sliderW, sliderH);   // Sub Rate
-    labels[7].setBounds(x, y + sliderH, sliderW, labelH);
-    x += sliderW + margin;
+    parameters[7].setBounds(iX, iY, iSliderW, iSliderH);   // Sub Rate
+    labels[7].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
+    iX += iSliderW + iMargin;
 
-    parameters[8].setBounds(x, y, sliderW, sliderH);   // Bass Rate
-    labels[8].setBounds(x, y + sliderH, sliderW, labelH);
-    x += sliderW + margin;
+    parameters[8].setBounds(iX, iY, iSliderW, iSliderH);   // Bass Rate
+    labels[8].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
+    iX += iSliderW + iMargin;
 
-    parameters[9].setBounds(x, y, sliderW, sliderH);   // Mid Rate
-    labels[9].setBounds(x, y + sliderH, sliderW, labelH);
-    x += sliderW + margin;
+    parameters[9].setBounds(iX, iY, iSliderW, iSliderH);   // Mid Rate
+    labels[9].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
+    iX += iSliderW + iMargin;
 
-    parameters[10].setBounds(x, y, sliderW, sliderH);   // Treble Rate
-    labels[10].setBounds(x, y + sliderH, sliderW, labelH);
+    parameters[10].setBounds(iX, iY, iSliderW, iSliderH);   // Treble Rate
+    labels[10].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
 
     // Row 3 (4 items) - Depths grouped
-    x = margin;
-    y += sliderH + labelH + margin;
+    iX = iMargin;
+    iY += iSliderH + iLabelH + iMargin;
 
-    parameters[11].setBounds(x, y, sliderW, sliderH);  // Sub Depth
-    labels[11].setBounds(x, y + sliderH, sliderW, labelH);
-    x += sliderW + margin;
+    parameters[11].setBounds(iX, iY, iSliderW, iSliderH);  // Sub Depth
+    labels[11].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
+    iX += iSliderW + iMargin;
 
-    parameters[12].setBounds(x, y, sliderW, sliderH);  // Bass Depth
-    labels[12].setBounds(x, y + sliderH, sliderW, labelH);
-    x += sliderW + margin;
+    parameters[12].setBounds(iX, iY, iSliderW, iSliderH);  // Bass Depth
+    labels[12].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
+    iX += iSliderW + iMargin;
 
-    parameters[13].setBounds(x, y, sliderW, sliderH);  // Mid Depth
-    labels[13].setBounds(x, y + sliderH, sliderW, labelH);
-    x += sliderW + margin;
+    parameters[13].setBounds(iX, iY, iSliderW, iSliderH);  // Mid Depth
+    labels[13].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
+    iX += iSliderW + iMargin;
 
-    parameters[14].setBounds(x, y, sliderW, sliderH);  // Treble Depth
-    labels[14].setBounds(x, y + sliderH, sliderW, labelH);
+    parameters[14].setBounds(iX, iY, iSliderW, iSliderH);  // Treble Depth
+    labels[14].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
 
     // Row 4 (5 items) - Rate Offset, Master Rate, Depth Offset, Phase Offset, Wet/Dry, Output
-    x = margin;
-    y += sliderH + labelH + margin;
+    iX = iMargin;
+    iY += iSliderH + iLabelH + iMargin;
 
-    parameters[16].setBounds(x, y, sliderW, sliderH);  // Rate Offset
-    labels[16].setBounds(x, y + sliderH, sliderW, labelH);
-    x += sliderW + margin;
+    parameters[16].setBounds(iX, iY, iSliderW, iSliderH);  // Rate Offset
+    labels[16].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
+    iX += iSliderW + iMargin;
 
-    parameters[6].setBounds(x, y, sliderW, sliderH);   // Master Rate
-    labels[6].setBounds(x, y + sliderH, sliderW, labelH);
-    x += sliderW + margin;
+    parameters[6].setBounds(iX, iY, iSliderW, iSliderH);   // Master Rate
+    labels[6].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
+    iX += iSliderW + iMargin;
 
-    parameters[17].setBounds(x, y, sliderW, sliderH);  // Depth Offset
-    labels[17].setBounds(x, y + sliderH, sliderW, labelH);
-    x += sliderW + margin;
+    parameters[17].setBounds(iX, iY, iSliderW, iSliderH);  // Depth Offset
+    labels[17].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
+    iX += iSliderW + iMargin;
 
-    parameters[15].setBounds(x, y, sliderW, sliderH);  // Phase Offset
-    labels[15].setBounds(x, y + sliderH, sliderW, labelH);
-    x += sliderW + margin;
+    parameters[15].setBounds(iX, iY, iSliderW, iSliderH);  // Phase Offset
+    labels[15].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
+    iX += iSliderW + iMargin;
 
-    parameters[19].setBounds(x, y, sliderW, sliderH);  // Wet
-    labels[19].setBounds(x, y + sliderH, sliderW, labelH);
-    x += sliderW + margin;
+    parameters[19].setBounds(iX, iY, iSliderW, iSliderH);  // Wet
+    labels[19].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
+    iX += iSliderW + iMargin;
 
-    parameters[20].setBounds(x, y, sliderW, sliderH);  // Output Gain
-    labels[20].setBounds(x, y + sliderH, sliderW, labelH);
+    parameters[20].setBounds(iX, iY, iSliderW, iSliderH);  // Output Gain
+    labels[20].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
 
     //==============================================================
     // Right-side menus and controls
     //==============================================================
-    const int menuW = scaled(140, fUiScale);
-    const int menuH = scaled(25, fUiScale);
-    const int colGap = scaled(10, fUiScale);
+    const int iMenuW = iScaled(140, fUiScale);
+    const int iMenuH = iScaled(25, fUiScale);
+    const int iColGap = iScaled(10, fUiScale);
 
-    const int menuX = scaled(622, fUiScale);  // Left column (presets, bypass, tremolo types)
-    int menuY = scaled(60, fUiScale);
+    const int iMenuX = iScaled(622, fUiScale);  // Left column (presets, bypass, tremolo types)
+    int iMenuY = iScaled(60, fUiScale);
 
-<<<<<<< Updated upstream
-    presetLabel.setBounds(menuX, menuY, menuW, 20);
-    presetMenu.setBounds(menuX, menuY + 20, menuW, 25);
-    menuY += 50;
+    presetLabel.setBounds(iMenuX, iMenuY, iMenuW, iLabelH);
+    presetMenu.setBounds(iMenuX, iMenuY + iLabelH, iMenuW, iMenuH);
+    iMenuY += iLabelH + iMenuH + iScaled(5, fUiScale);
 
-    tapTempoButton.setBounds(menuX, menuY, menuW, menuH);
-    menuY += menuH + 8;
+    tapTempoButton.setBounds(iMenuX, iMenuY, iMenuW, iMenuH);
+    iMenuY += iMenuH + iScaled(8, fUiScale);
 
-    resetDefaultsButton.setBounds(menuX, menuY, menuW, menuH);
-    menuY += menuH + 10;
-=======
-    presetLabel.setBounds(menuX, menuY, menuW, labelH);
-    presetMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
-    menuY += labelH + menuH + scaled(5, fUiScale);
->>>>>>> Stashed changes
+    resetDefaultsButton.setBounds(iMenuX, iMenuY, iMenuW, iMenuH);
+    iMenuY += iMenuH + iScaled(10, fUiScale);
 
-    tapTempoButton.setBounds(menuX, menuY, menuW, menuH);
-    menuY += menuH + scaled(8, fUiScale);
-
-    resetDefaultsButton.setBounds(menuX, menuY, menuW, menuH);
-    menuY += menuH + scaled(10, fUiScale);
-
-    bypassLabel.setBounds(menuX, menuY, menuW, labelH);
-    bypassButton.setBounds(menuX, menuY + labelH, menuW, menuH);
-    menuY += labelH + menuH + scaled(5, fUiScale);
+    bypassLabel.setBounds(iMenuX, iMenuY, iMenuW, iLabelH);
+    bypassButton.setBounds(iMenuX, iMenuY + iLabelH, iMenuW, iMenuH);
+    iMenuY += iLabelH + iMenuH + iScaled(5, fUiScale);
 
     // Tremolo type menus - positioned after bypass with tighter spacing
-    subTremLabel.setBounds(menuX, menuY, menuW, labelH);
-    subTremMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
-    menuY += labelH + menuH + scaled(8, fUiScale);
+    subTremLabel.setBounds(iMenuX, iMenuY, iMenuW, iLabelH);
+    subTremMenu.setBounds(iMenuX, iMenuY + iLabelH, iMenuW, iMenuH);
+    iMenuY += iLabelH + iMenuH + iScaled(8, fUiScale);
 
-    bassTremLabel.setBounds(menuX, menuY, menuW, labelH);
-    bassTremMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
-    menuY += labelH + menuH + scaled(8, fUiScale);
+    bassTremLabel.setBounds(iMenuX, iMenuY, iMenuW, iLabelH);
+    bassTremMenu.setBounds(iMenuX, iMenuY + iLabelH, iMenuW, iMenuH);
+    iMenuY += iLabelH + iMenuH + iScaled(8, fUiScale);
 
-    midTremLabel.setBounds(menuX, menuY, menuW, labelH);
-    midTremMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
-    menuY += labelH + menuH + scaled(8, fUiScale);
+    midTremLabel.setBounds(iMenuX, iMenuY, iMenuW, iLabelH);
+    midTremMenu.setBounds(iMenuX, iMenuY + iLabelH, iMenuW, iMenuH);
+    iMenuY += iLabelH + iMenuH + iScaled(8, fUiScale);
 
-    trebleTremLabel.setBounds(menuX, menuY, menuW, labelH);
-    trebleTremMenu.setBounds(menuX, menuY + labelH, menuW, menuH);
+    trebleTremLabel.setBounds(iMenuX, iMenuY, iMenuW, iLabelH);
+    trebleTremMenu.setBounds(iMenuX, iMenuY + iLabelH, iMenuW, iMenuH);
 
     //==============================================================
     // Tempo sync controls - second column to the right, aligned with presets
     //==============================================================
-    const int tempoX = menuX + menuW + colGap;
-    int tempoY = scaled(60, fUiScale);
-    const int tempoColW = scaled(130, fUiScale);
-    const int sliderSize = scaled(60, fUiScale);  // Rotary slider diameter
+    const int iTempoX = iMenuX + iMenuW + iColGap;
+    int iTempoY = iScaled(60, fUiScale);
+    const int iTempoColW = iScaled(130, fUiScale);
+    const int iSliderSize = iScaled(60, fUiScale);  // Rotary slider diameter
 
-    tempoSyncLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
-    tempoSyncSlider.setBounds(tempoX, tempoY + labelH, tempoColW, menuH);
-    tempoY += labelH + menuH + scaled(16, fUiScale);
+    tempoSyncLabel.setBounds(iTempoX, iTempoY, iTempoColW, iLabelH);
+    tempoSyncSlider.setBounds(iTempoX, iTempoY + iLabelH, iTempoColW, iMenuH);
+    iTempoY += iLabelH + iMenuH + iScaled(16, fUiScale);
 
     // Per-band note-division rotary sliders with value displays
-    subNoteDivLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
-    subNoteDivSlider.setBounds(tempoX + (tempoColW - sliderSize) / 2, tempoY + labelH, sliderSize, sliderSize);
-    subNoteDivValueLabel.setBounds(tempoX, tempoY + labelH + sliderSize, tempoColW, labelH);
-    tempoY += labelH + sliderSize + labelH + scaled(16, fUiScale);
+    subNoteDivLabel.setBounds(iTempoX, iTempoY, iTempoColW, iLabelH);
+    subNoteDivSlider.setBounds(iTempoX + (iTempoColW - iSliderSize) / 2, iTempoY + iLabelH, iSliderSize, iSliderSize);
+    subNoteDivValueLabel.setBounds(iTempoX, iTempoY + iLabelH + iSliderSize, iTempoColW, iLabelH);
+    iTempoY += iLabelH + iSliderSize + iLabelH + iScaled(16, fUiScale);
 
-    bassNoteDivLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
-    bassNoteDivSlider.setBounds(tempoX + (tempoColW - sliderSize) / 2, tempoY + labelH, sliderSize, sliderSize);
-    bassNoteDivValueLabel.setBounds(tempoX, tempoY + labelH + sliderSize, tempoColW, labelH);
-    tempoY += labelH + sliderSize + labelH + scaled(16, fUiScale);
+    bassNoteDivLabel.setBounds(iTempoX, iTempoY, iTempoColW, iLabelH);
+    bassNoteDivSlider.setBounds(iTempoX + (iTempoColW - iSliderSize) / 2, iTempoY + iLabelH, iSliderSize, iSliderSize);
+    bassNoteDivValueLabel.setBounds(iTempoX, iTempoY + iLabelH + iSliderSize, iTempoColW, iLabelH);
+    iTempoY += iLabelH + iSliderSize + iLabelH + iScaled(16, fUiScale);
 
-    midNoteDivLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
-    midNoteDivSlider.setBounds(tempoX + (tempoColW - sliderSize) / 2, tempoY + labelH, sliderSize, sliderSize);
-    midNoteDivValueLabel.setBounds(tempoX, tempoY + labelH + sliderSize, tempoColW, labelH);
-    tempoY += labelH + sliderSize + labelH + scaled(16, fUiScale);
+    midNoteDivLabel.setBounds(iTempoX, iTempoY, iTempoColW, iLabelH);
+    midNoteDivSlider.setBounds(iTempoX + (iTempoColW - iSliderSize) / 2, iTempoY + iLabelH, iSliderSize, iSliderSize);
+    midNoteDivValueLabel.setBounds(iTempoX, iTempoY + iLabelH + iSliderSize, iTempoColW, iLabelH);
+    iTempoY += iLabelH + iSliderSize + iLabelH + iScaled(16, fUiScale);
 
-    trebleNoteDivLabel.setBounds(tempoX, tempoY, tempoColW, labelH);
-    trebleNoteDivSlider.setBounds(tempoX + (tempoColW - sliderSize) / 2, tempoY + labelH, sliderSize, sliderSize);
-    trebleNoteDivValueLabel.setBounds(tempoX, tempoY + labelH + sliderSize, tempoColW, labelH);
+    trebleNoteDivLabel.setBounds(iTempoX, iTempoY, iTempoColW, iLabelH);
+    trebleNoteDivSlider.setBounds(iTempoX + (iTempoColW - iSliderSize) / 2, iTempoY + iLabelH, iSliderSize, iSliderSize);
+    trebleNoteDivValueLabel.setBounds(iTempoX, iTempoY + iLabelH + iSliderSize, iTempoColW, iLabelH);
 
     //==============================================================
     // Extra controls - third column to the right of tempo sync
     //==============================================================
-<<<<<<< Updated upstream
-    int extraX = tempoX + tempoColW + colGap;
-    int extraY = 60;
-    int extraColW = 140;
+    const int iExtraX = iTempoX + iTempoColW + iColGap;
+    int iExtraY = iScaled(60, fUiScale);
+    const int iExtraColW = iScaled(140, fUiScale);
 
-    rateLockLabel.setBounds(extraX, extraY, extraColW, labelH);
-    rateLockButton.setBounds(extraX, extraY + labelH, extraColW, menuH);
-    extraY += labelH + menuH + 8;
+    rateLockLabel.setBounds(iExtraX, iExtraY, iExtraColW, iLabelH);
+    rateLockButton.setBounds(iExtraX, iExtraY + iLabelH, iExtraColW, iMenuH);
+    iExtraY += iLabelH + iMenuH + iScaled(8, fUiScale);
 
-    retriggerLabel.setBounds(extraX, extraY, extraColW, labelH);
-    retriggerButton.setBounds(extraX, extraY + labelH, extraColW, menuH);
-    extraY += labelH + menuH + 8;
+    retriggerLabel.setBounds(iExtraX, iExtraY, iExtraColW, iLabelH);
+    retriggerButton.setBounds(iExtraX, iExtraY + iLabelH, iExtraColW, iMenuH);
+    iExtraY += iLabelH + iMenuH + iScaled(8, fUiScale);
 
-    stereoModeLabel.setBounds(extraX, extraY, extraColW, labelH);
-    stereoModeMenu.setBounds(extraX, extraY + labelH, extraColW, menuH);
-    extraY += labelH + menuH + 8;
+    surroundWidthLabel.setBounds(iExtraX, iExtraY, iExtraColW, iLabelH);
+    surroundWidthSlider.setBounds(iExtraX, iExtraY + iLabelH, iExtraColW, iSliderH);
+    iExtraY += iLabelH + iSliderH + iScaled(8, fUiScale);
 
-    depthModeLabel.setBounds(extraX, extraY, extraColW, labelH);
-    depthModeMenu.setBounds(extraX, extraY + labelH, extraColW, menuH);
-    extraY += labelH + menuH + 12;
+    depthModeLabel.setBounds(iExtraX, iExtraY, iExtraColW, iLabelH);
+    depthModeMenu.setBounds(iExtraX, iExtraY + iLabelH, iExtraColW, iMenuH);
+    iExtraY += iLabelH + iMenuH + iScaled(12, fUiScale);
 
-    inputMeterLabel.setBounds(extraX, extraY, extraColW, labelH);
-    inputMeterBar.setBounds(extraX, extraY + labelH, extraColW, 14);
-    extraY += labelH + 20;
+    inputMeterLabel.setBounds(iExtraX, iExtraY, iExtraColW, iLabelH);
+    inputMeterBar.setBounds(iExtraX, iExtraY + iLabelH, iExtraColW, iScaled(14, fUiScale));
+    iExtraY += iLabelH + iScaled(20, fUiScale);
 
-    outputMeterLabel.setBounds(extraX, extraY, extraColW, labelH);
-    outputMeterBar.setBounds(extraX, extraY + labelH, extraColW, 14);
-=======
-    const int extraX = tempoX + tempoColW + colGap;
-    int extraY = scaled(60, fUiScale);
-    const int extraColW = scaled(140, fUiScale);
-
-    rateLockLabel.setBounds(extraX, extraY, extraColW, labelH);
-    rateLockButton.setBounds(extraX, extraY + labelH, extraColW, menuH);
-    extraY += labelH + menuH + scaled(8, fUiScale);
-
-    retriggerLabel.setBounds(extraX, extraY, extraColW, labelH);
-    retriggerButton.setBounds(extraX, extraY + labelH, extraColW, menuH);
-    extraY += labelH + menuH + scaled(8, fUiScale);
-
-    stereoModeLabel.setBounds(extraX, extraY, extraColW, labelH);
-    stereoModeMenu.setBounds(extraX, extraY + labelH, extraColW, menuH);
-    extraY += labelH + menuH + scaled(8, fUiScale);
-
-    depthModeLabel.setBounds(extraX, extraY, extraColW, labelH);
-    depthModeMenu.setBounds(extraX, extraY + labelH, extraColW, menuH);
-    extraY += labelH + menuH + scaled(12, fUiScale);
-
-    inputMeterLabel.setBounds(extraX, extraY, extraColW, labelH);
-    inputMeterBar.setBounds(extraX, extraY + labelH, extraColW, scaled(14, fUiScale));
-    extraY += labelH + scaled(20, fUiScale);
-
-    outputMeterLabel.setBounds(extraX, extraY, extraColW, labelH);
-    outputMeterBar.setBounds(extraX, extraY + labelH, extraColW, scaled(14, fUiScale));
->>>>>>> Stashed changes
+    outputMeterLabel.setBounds(iExtraX, iExtraY, iExtraColW, iLabelH);
+    outputMeterBar.setBounds(iExtraX, iExtraY + iLabelH, iExtraColW, iScaled(14, fUiScale));
 }
