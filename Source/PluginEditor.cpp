@@ -1,9 +1,24 @@
+/*
+  ==============================================================================
+
+    AutoTremolando editor implementation.
+    Contains layout, control attachments, and UI interaction behaviour.
+
+    Plugin: AutoTremolando
+    GitHub: MontyWh
+    Author: Montague Whishaw
+
+  ==============================================================================
+*/
+
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 
+// Editor implementation: layout, control attachments, and UI interaction logic.
 //==============================================================================
 namespace
 {
+    // Screen-aware scaling keeps the dense control layout usable on small displays.
     constexpr int iBaseEditorWidth = 1400;
     constexpr int iBaseEditorHeight = 700;
     constexpr float fTargetScreenCoverage = 0.85f;
@@ -144,9 +159,9 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
     presetLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(presetLabel);
 
-    presetMenu.addItem("Preset 1", 1);
-    presetMenu.addItem("Preset 2", 2);
-    presetMenu.addItem("Preset 3", 3);
+    const auto& presets = audioProcessor.getPresets();
+    for (int i = 0; i < static_cast<int>(presets.size()); ++i)
+        presetMenu.addItem(presets[static_cast<size_t>(i)].sName, i + 1);
     addAndMakeVisible(presetMenu);
 
     presetMenu.onChange = [this]()
@@ -198,59 +213,6 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
     tempoSyncSlider.setButtonText("TIME");
     addAndMakeVisible(tempoSyncSlider);
 
-    tempoSyncSlider.onClick = [this]()
-        {
-            bool bCurrentSyncState = *audioProcessor.apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
-            bool bNewSync = !bCurrentSyncState;
-            if (auto* param = audioProcessor.apvts.getParameter("TEMPO_SYNC"))
-                param->setValueNotifyingHost(bNewSync ? 1.0f : 0.0f);
-
-            bCurrentSync = bNewSync;  // Update member variable
-            tempoSyncSlider.setButtonText(bNewSync ? "TEMPO" : "TIME");
-
-            // Update labels based on sync mode
-            if (bNewSync)
-            {
-                subNoteDivLabel.setText("Sub Div", juce::dontSendNotification);
-                bassNoteDivLabel.setText("Bass Div", juce::dontSendNotification);
-                midNoteDivLabel.setText("Mid Div", juce::dontSendNotification);
-                trebleNoteDivLabel.setText("Treble Div", juce::dontSendNotification);
-            }
-            else
-            {
-                subNoteDivLabel.setText("Sub Time", juce::dontSendNotification);
-                bassNoteDivLabel.setText("Bass Time", juce::dontSendNotification);
-                midNoteDivLabel.setText("Mid Time", juce::dontSendNotification);
-                trebleNoteDivLabel.setText("Treble Time", juce::dontSendNotification);
-            }
-
-            // Update value labels to reflect new interpretation
-            auto updateLabel = [bNewSync](juce::Slider& slider, juce::Label& valueLabel)
-                {
-                    int iIdx = juce::roundToInt(slider.getValue());
-                    if (bNewSync)
-                    {
-                        const juce::String sTempoLabels[] = {
-                            "1/1", "1/1d", "1/1t",
-                            "1/2", "1/2d", "1/2t",
-                            "1/4", "1/4d", "1/4t",
-                            "1/8", "1/8d", "1/8t",
-                            "1/16", "1/16d", "1/16t"
-                        };
-                        valueLabel.setText(sTempoLabels[iIdx], juce::dontSendNotification);
-                    }
-                    else
-                    {
-                        float fHz = 0.5f + (iIdx / 14.0f) * 15.5f;
-                        valueLabel.setText(juce::String(fHz, 2) + " Hz", juce::dontSendNotification);
-                    }
-                };
-
-            updateLabel(subNoteDivSlider, subNoteDivValueLabel);
-            updateLabel(bassNoteDivSlider, bassNoteDivValueLabel);
-            updateLabel(midNoteDivSlider, midNoteDivValueLabel);
-            updateLabel(trebleNoteDivSlider, trebleNoteDivValueLabel);
-        };
 
     rateLockLabel.setText("Rate Lock", juce::dontSendNotification);
     rateLockLabel.setJustificationType(juce::Justification::centred);
@@ -344,7 +306,7 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
         {
             auto updateLabel = [this](juce::Slider& slider, juce::Label& valueLabel)
                 {
-                    int iIdx = juce::roundToInt(slider.getValue());
+                    const int iIdx = juce::roundToInt(slider.getValue());
                     if (bCurrentSync)
                     {
                         const juce::String sTempoLabels[] = {
@@ -358,8 +320,7 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
                     }
                     else
                     {
-                        // Time mode: Hz (mapped from 0.5 Hz to 16 Hz)
-                        float fHz = 0.5f + (iIdx / 14.0f) * 15.5f;
+                        const float fHz = 0.5f + (iIdx / 14.0f) * 15.5f;
                         valueLabel.setText(juce::String(fHz, 2) + " Hz", juce::dontSendNotification);
                     }
                 };

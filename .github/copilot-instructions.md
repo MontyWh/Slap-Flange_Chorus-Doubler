@@ -11,6 +11,13 @@
 - The left-hand Rate knobs and the right-hand Time/Div controls serve different purposes and should not be permanently linked to each other.
 - Focus on creating a simple tremolo plugin that emphasizes core industry-standard parameters without unnecessary complexity.
 - Use industry-standard plugin control terminology for UI labels; avoid nonstandard wording.
+- Apply edits only to existing Projucer-managed files; do not create temporary/generated side files in the Source folder.
+- Project author attribution to use in file banners: Plugin: AutoTremolando, GitHub: MontyWh, Author: Montague Whishaw.
+
+## Logic Placement
+- When moving logic to PluginExtra.h, only move DSP math/processing helpers there; keep UI-related logic and metadata out of PluginExtra.
 
 ## Language Preferences
 - Use UK English wording throughout the code and comments.
+- Prefer inline end-of-line comments instead of separate comment lines when requesting code annotation.
+- Use meaningful comments only; remove generic filler comments. Add meaningful, non-filler comments across all project source files when requesting documentation updates.

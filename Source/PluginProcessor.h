@@ -1,7 +1,13 @@
 /*
   ==============================================================================
 
-    This file contains the basic framework code for a JUCE plugin processor.
+    AutoTremolando processor declaration.
+    This class owns the plugin parameter state, smoothing state, band filters,
+    and the realtime tremolo DSP entry points used by the audio thread.
+
+    Plugin: AutoTremolando
+    GitHub: MontyWh
+    Author: Montague Whishaw
 
   ==============================================================================
 */
@@ -13,6 +19,7 @@
 #include <atomic>
 
 //==============================================================================
+// Main audio engine: host lifecycle callbacks + multiband tremolo processing.
 class AutoTremolandoAudioProcessor : public juce::AudioProcessor
 {
 public:
@@ -70,10 +77,10 @@ private:
     void initPresets();
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
 
-    float fSampleRate;
+    float fSampleRate = 0.0f;
 
-    float fRate[4] = { 5.0f, 5.0f, 5.0f, 5.0f };
-    float fDepth[4] = { 0.5f, 0.5f, 0.5f, 0.5f };
+    TremoloDspUtils::BandFloatArray fRate { 5.0f, 5.0f, 5.0f, 5.0f };
+    TremoloDspUtils::BandFloatArray fDepth { 0.5f, 0.5f, 0.5f, 0.5f };
 
     // Per-channel phase offset (sized in prepareToPlay)
     std::vector<float> fPhaseOffset;

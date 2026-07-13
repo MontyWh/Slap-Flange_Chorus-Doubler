@@ -1,7 +1,13 @@
 /*
   ==============================================================================
 
-    This file contains the basic framework code for a JUCE plugin editor.
+    AutoTremolando editor declaration.
+    This UI binds controls to APVTS parameters and exposes tremolo workflow
+    controls such as wave type, sync, rate/depth offsets, and metering.
+
+    Plugin: AutoTremolando
+    GitHub: MontyWh
+    Author: Montague Whishaw
 
   ==============================================================================
 */
@@ -12,7 +18,8 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
-// 22 parameters total (input + presence + tremolo types + master rate + rates + depths + offsets + pulse + wet + output + bypass)
+// Number of rotary slider parameters presented in the main panel.
+// (Additional controls like sync mode or note division are separate widgets.)
 //==============================================================================
 const int iNumParameters = 22;
 

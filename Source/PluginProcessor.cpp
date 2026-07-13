@@ -1,7 +1,13 @@
 /*
   ==============================================================================
 
-    This file contains the basic framework code for a JUCE plugin processor.
+    AutoTremolando processor implementation.
+    Contains parameter definition, preset recall, host integration, and the
+    realtime multiband tremolo signal path for float/double processing.
+
+    Plugin: AutoTremolando
+    GitHub: MontyWh
+    Author: Montague Whishaw
 
   ==============================================================================
 */
@@ -9,7 +15,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "PluginExtra.h"
-#include <type_traits>
 
 //==============================================================================
 AutoTremolandoAudioProcessor::AutoTremolandoAudioProcessor()
@@ -85,7 +90,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout AutoTremolandoAudioProcessor
     // Tempo sync
     params.push_back(std::make_unique<juce::AudioParameterBool>("TEMPO_SYNC", "Tempo Sync", false));
 
-    // Note division / time sliders: 0–14 range supports 15 standard sync positions
+    // Note division / time sliders: 0-14 range supports 15 standard sync positions
     // Tempo mode: Straight, Triplet and Dotted for common note values
     // Time mode: 0.5 Hz to 16 Hz (2s to 62ms)
     params.push_back(std::make_unique<juce::AudioParameterFloat>("SUB_NOTE_DIV",    "Sub Note Div",    0.0f, 14.0f, 9.0f));
@@ -101,44 +106,44 @@ void AutoTremolandoAudioProcessor::initPresets()
 {
     presets = {
         { "Preset 1", {
-        0.5f, 0.0f,          // Input, Presence
-        0, 0, 0, 0,          // Sub/Bass/Mid/Treble Tremolo types
-        1.0f,                // Master Rate
-        5.0f, 5.0f, 5.0f, 5.0f,   // Sub/Bass/Mid/Treble Rates
-        0.5f, 0.5f, 0.5f, 0.5f,   // Sub/Bass/Mid/Treble Depths
-        0.0f, 0.0f, 0.0f, 0.0f, 0.5f,   // Phase Offset, Start Phase, Rate Offset, Depth Offset, Pulse Width
-        0.0f, 1.0f, 1.0f, 0.0f,         // Rate Lock, Retrigger On Play, Surround Width, Depth Mode
-        1.0f, 0.5f, 0.0f     // Wet, Output, Bypass
+        0.5f, 0.0f,
+        0, 0, 0, 0,
+        1.0f,
+        5.0f, 5.0f, 5.0f, 5.0f,
+        0.5f, 0.5f, 0.5f, 0.5f,
+        0.0f, 0.0f, 0.0f, 0.0f, 0.5f,
+        0.0f, 1.0f, 1.0f, 0.0f,
+        1.0f, 0.5f, 0.0f
     }},
     { "Preset 2", {
-        0.5f, 0.0f,          // Input, Presence
-        0, 0, 0, 0,          // Sub/Bass/Mid/Treble Tremolo types
-        1.0f,                // Master Rate
-        5.0f, 5.0f, 5.0f, 5.0f,   // Sub/Bass/Mid/Treble Rates
-        0.5f, 0.5f, 0.5f, 0.5f,   // Sub/Bass/Mid/Treble Depths
-        0.0f, 0.0f, 0.0f, 0.0f, 0.5f,   // Phase Offset, Start Phase, Rate Offset, Depth Offset, Pulse Width
-        0.0f, 1.0f, 1.0f, 0.0f,         // Rate Lock, Retrigger On Play, Surround Width, Depth Mode
-        1.0f, 0.5f, 0.0f     // Wet, Output, Bypass
+        0.5f, 0.0f,
+        0, 0, 0, 0,
+        1.0f,
+        5.0f, 5.0f, 5.0f, 5.0f,
+        0.5f, 0.5f, 0.5f, 0.5f,
+        0.0f, 0.0f, 0.0f, 0.0f, 0.5f,
+        0.0f, 1.0f, 1.0f, 0.0f,
+        1.0f, 0.5f, 0.0f
     }},
     { "Preset 3", {
-        0.5f, 0.0f,          // Input, Presence
-        0, 0, 0, 0,          // Sub/Bass/Mid/Treble Tremolo types
-        1.0f,                // Master Rate
-        5.0f, 5.0f, 5.0f, 5.0f,   // Sub/Bass/Mid/Treble Rates
-        0.5f, 0.5f, 0.5f, 0.5f,   // Sub/Bass/Mid/Treble Depths
-        0.0f, 0.0f, 0.0f, 0.0f, 0.5f,   // Phase Offset, Start Phase, Rate Offset, Depth Offset, Pulse Width
-        0.0f, 1.0f, 1.0f, 0.0f,         // Rate Lock, Retrigger On Play, Surround Width, Depth Mode
-        1.0f, 0.5f, 0.0f     // Wet, Output, Bypass
+        0.5f, 0.0f,
+        0, 0, 0, 0,
+        1.0f,
+        5.0f, 5.0f, 5.0f, 5.0f,
+        0.5f, 0.5f, 0.5f, 0.5f,
+        0.0f, 0.0f, 0.0f, 0.0f, 0.5f,
+        0.0f, 1.0f, 1.0f, 0.0f,
+        1.0f, 0.5f, 0.0f
     }}
     };
-
 }
 
 void AutoTremolandoAudioProcessor::loadPreset(int index)
 {
-    if (index < 0 || index >= presets.size()) return;
+    if (index < 0 || index >= static_cast<int>(presets.size()))
+        return;
 
-    auto& preset = presets[index];
+    const auto& preset = presets[static_cast<size_t>(index)];
 
     const char* paramIDs[] = {
         "INPUT_GAIN", "PRESENCE",
@@ -151,25 +156,21 @@ void AutoTremolandoAudioProcessor::loadPreset(int index)
         "WET", "OUTPUT_GAIN", "BYPASS"
     };
 
-    for (int i = 0; i < (int)preset.fValues.size(); ++i)
+    const int iValueCount = juce::jmin(static_cast<int>(preset.fValues.size()), static_cast<int>(std::size(paramIDs)));
+
+    for (int i = 0; i < iValueCount; ++i)
         if (auto* param = apvts.getParameter(paramIDs[i]))
-            param->setValueNotifyingHost(param->convertTo0to1(preset.fValues[i]));
+            param->setValueNotifyingHost(param->convertTo0to1(preset.fValues[static_cast<size_t>(i)]));
 }
 
 void AutoTremolandoAudioProcessor::registerTapTempo()
 {
-    const double dNowMs = juce::Time::getMillisecondCounterHiRes();
-    const double dPreviousTapMs = dLastTapTimeMs.exchange(dNowMs);
+	const double dNowMs = juce::Time::getMillisecondCounterHiRes();
+	const double dPreviousTapMs = dLastTapTimeMs.exchange(dNowMs);
 
-    if (dPreviousTapMs <= 0.0)
-        return;
-
-    const double dDeltaMs = dNowMs - dPreviousTapMs;
-    if (dDeltaMs < 120.0 || dDeltaMs > 2000.0)
-        return;
-
-    const float fNewBpm = static_cast<float>(60000.0 / dDeltaMs);
-    fTapTempoBpm.store(juce::jlimit(40.0f, 240.0f, fNewBpm));
+	float fNewBpm = 0.0f;
+	if (TremoloDspUtils::tryCalculateTapTempoBpm(dNowMs, dPreviousTapMs, fNewBpm))
+		fTapTempoBpm.store(fNewBpm);
 }
 
 void AutoTremolandoAudioProcessor::resetParametersToDefaults()
@@ -256,66 +257,66 @@ void AutoTremolandoAudioProcessor::changeProgramName(int index, const juce::Stri
 }
 
 //==============================================================================
-void AutoTremolandoAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
+void AutoTremolandoAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) // Initialises DSP state before audio starts processing.
 {
-    int iNumChannels = getTotalNumInputChannels();
-    int iNumOutputChannels = getTotalNumOutputChannels();
+	int iNumChannels = getTotalNumInputChannels();
+	int iNumOutputChannels = getTotalNumOutputChannels();
 
-    fSampleRate = static_cast<float>(sampleRate);
+	fSampleRate = static_cast<float>(sampleRate);
 
-    juce::dsp::ProcessSpec spec;
-    spec.sampleRate = sampleRate;
-    spec.maximumBlockSize = samplesPerBlock;
-    spec.numChannels = 1;
+	juce::dsp::ProcessSpec spec;
+	spec.sampleRate = sampleRate;
+	spec.maximumBlockSize = samplesPerBlock;
+	spec.numChannels = 1;
 
-    subBass.clear();
-    bassLower.clear();
-    bassUpper.clear();
-    midLower.clear();
-    midUpper.clear();
-    treble.clear();
-    resonanceFilter.clear();
+	subBass.clear();
+	bassLower.clear();
+	bassUpper.clear();
+	midLower.clear();
+	midUpper.clear();
+	treble.clear();
+	resonanceFilter.clear();
 
-    for (int iChannel = 0; iChannel < iNumChannels; ++iChannel)
-    {
-        subBass.add(new Filter());      subBass[iChannel]->prepare(spec);
-        bassLower.add(new Filter());    bassLower[iChannel]->prepare(spec);
-        bassUpper.add(new Filter());    bassUpper[iChannel]->prepare(spec);
-        midLower.add(new Filter());     midLower[iChannel]->prepare(spec);
-        midUpper.add(new Filter());     midUpper[iChannel]->prepare(spec);
-        treble.add(new Filter());       treble[iChannel]->prepare(spec);
-        resonanceFilter.add(new Filter()); resonanceFilter[iChannel]->prepare(spec);
-    }
+	for (int iChannel = 0; iChannel < iNumChannels; ++iChannel) // Iterates channels, bands, or samples for deterministic DSP.
+	{
+		subBass.add(new Filter());      subBass[iChannel]->prepare(spec);
+		bassLower.add(new Filter());    bassLower[iChannel]->prepare(spec);
+		bassUpper.add(new Filter());    bassUpper[iChannel]->prepare(spec);
+		midLower.add(new Filter());     midLower[iChannel]->prepare(spec);
+		midUpper.add(new Filter());     midUpper[iChannel]->prepare(spec);
+		treble.add(new Filter());       treble[iChannel]->prepare(spec);
+		resonanceFilter.add(new Filter()); resonanceFilter[iChannel]->prepare(spec);
+	}
 
-    fPhaseOffset.assign(iNumOutputChannels, 0.0f);
-    tremolo.reset(iNumChannels);
+	fPhaseOffset.assign(iNumOutputChannels, 0.0f);
+	tremolo.reset(iNumChannels);
 
-    const float fStartPhaseDegrees = *apvts.getRawParameterValue("START_PHASE");
-    tremolo.retrigger(juce::degreesToRadians(fStartPhaseDegrees));
+	const float fStartPhaseDegrees = *apvts.getRawParameterValue("START_PHASE"); // Reads host automation values for the current audio block.
+	tremolo.retrigger(juce::degreesToRadians(fStartPhaseDegrees));
 
-    smoothedInputGain.reset(sampleRate, 0.02);
-    smoothedOutputGain.reset(sampleRate, 0.02);
-    smoothedWet.reset(sampleRate, 0.02);
-    smoothedPulseWidth.reset(sampleRate, 0.02);
-    smoothedBypass.reset(sampleRate, 0.02);
+	smoothedInputGain.reset(sampleRate, 0.02); // Smooths control changes to prevent zipper noise artefacts.
+	smoothedOutputGain.reset(sampleRate, 0.02); // Smooths control changes to prevent zipper noise artefacts.
+	smoothedWet.reset(sampleRate, 0.02); // Smooths control changes to prevent zipper noise artefacts.
+	smoothedPulseWidth.reset(sampleRate, 0.02); // Smooths control changes to prevent zipper noise artefacts.
+	smoothedBypass.reset(sampleRate, 0.02); // Smooths control changes to prevent zipper noise artefacts.
 
-    smoothedInputGain.setCurrentAndTargetValue(0.5f);
-    smoothedOutputGain.setCurrentAndTargetValue(0.5f);
-    smoothedWet.setCurrentAndTargetValue(1.0f);
-    smoothedPulseWidth.setCurrentAndTargetValue(0.5f);
-    smoothedBypass.setCurrentAndTargetValue(0.0f);
+	smoothedInputGain.setCurrentAndTargetValue(0.5f); // Smooths control changes to prevent zipper noise artefacts.
+	smoothedOutputGain.setCurrentAndTargetValue(0.5f); // Smooths control changes to prevent zipper noise artefacts.
+	smoothedWet.setCurrentAndTargetValue(1.0f); // Smooths control changes to prevent zipper noise artefacts.
+	smoothedPulseWidth.setCurrentAndTargetValue(0.5f); // Smooths control changes to prevent zipper noise artefacts.
+	smoothedBypass.setCurrentAndTargetValue(0.0f); // Smooths control changes to prevent zipper noise artefacts.
 
-    for (int iBand = 0; iBand < 4; ++iBand)
-    {
-        smoothedRate[iBand].reset(sampleRate, 0.02);
-        smoothedDepth[iBand].reset(sampleRate, 0.02);
-        smoothedRate[iBand].setCurrentAndTargetValue(5.0f);
-        smoothedDepth[iBand].setCurrentAndTargetValue(0.5f);
-    }
+	for (int iBand = 0; iBand < 4; ++iBand) // Iterates channels, bands, or samples for deterministic DSP.
+	{
+		smoothedRate[iBand].reset(sampleRate, 0.02); // Smooths control changes to prevent zipper noise artefacts.
+		smoothedDepth[iBand].reset(sampleRate, 0.02); // Smooths control changes to prevent zipper noise artefacts.
+		smoothedRate[iBand].setCurrentAndTargetValue(5.0f); // Smooths control changes to prevent zipper noise artefacts.
+		smoothedDepth[iBand].setCurrentAndTargetValue(0.5f); // Smooths control changes to prevent zipper noise artefacts.
+	}
 
-    bWasPlaying = false;
-    fInputMeterLevel.store(0.0f);
-    fOutputMeterLevel.store(0.0f);
+	bWasPlaying = false;
+	fInputMeterLevel.store(0.0f);
+	fOutputMeterLevel.store(0.0f);
 }
 
 void AutoTremolandoAudioProcessor::releaseResources()
@@ -326,20 +327,20 @@ void AutoTremolandoAudioProcessor::releaseResources()
 bool AutoTremolandoAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 {
 #if JucePlugin_IsMidiEffect
-    juce::ignoreUnused(layouts);
-    return true;
+	juce::ignoreUnused(layouts);
+	return true;
 #else
-    const auto mainOutput = layouts.getMainOutputChannelSet();
+	const auto mainOutput = layouts.getMainOutputChannelSet();
 
-    if (mainOutput.isDisabled())
-        return false;
+	if (mainOutput.isDisabled()) // Branches logic to keep modulation behaviour context-aware.
+		return false;
 
 #if ! JucePlugin_IsSynth
-    if (mainOutput != layouts.getMainInputChannelSet())
-        return false;
+	if (mainOutput != layouts.getMainInputChannelSet()) // Branches logic to keep modulation behaviour context-aware.
+		return false;
 #endif
 
-    return true;
+	return true;
 #endif
 }
 #endif
@@ -348,25 +349,25 @@ bool AutoTremolandoAudioProcessor::isBusesLayoutSupported(const BusesLayout& lay
 void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
 	juce::ScopedNoDenormals noDenormals;
-	auto iTotalNumInputChannels = getTotalNumInputChannels();
-	auto iNumSamples = buffer.getNumSamples();
+	const int iTotalNumInputChannels = getTotalNumInputChannels();
 
 	const bool bBypass = *apvts.getRawParameterValue("BYPASS") > 0.5f;
 	const bool bTempoSync = *apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
 	const bool bRateLock = *apvts.getRawParameterValue("RATE_LOCK") > 0.5f;
 	const bool bRetriggerOnPlay = *apvts.getRawParameterValue("RETRIGGER_ON_PLAY") > 0.5f;
 	const float fSurroundWidth = juce::jlimit(0.0f, 1.0f, apvts.getRawParameterValue("SURROUND_WIDTH")->load());
-	const int iDepthMode = (int)*apvts.getRawParameterValue("DEPTH_MODE");
+	const int iDepthMode = static_cast<int>(*apvts.getRawParameterValue("DEPTH_MODE"));
 
-	const float fInGainTarget = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
-	const float fOutGainTarget = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
-	const float fWetDryTarget = std::pow(*apvts.getRawParameterValue("WET"), 3.0f);
+	const float fInGainTarget = TremoloDspUtils::applyControlCurve(*apvts.getRawParameterValue("INPUT_GAIN"));
+	const float fOutGainTarget = TremoloDspUtils::applyControlCurve(*apvts.getRawParameterValue("OUTPUT_GAIN"));
+	const float fWetDryTarget = TremoloDspUtils::applyControlCurve(*apvts.getRawParameterValue("WET"));
 	const float fPresence = *apvts.getRawParameterValue("PRESENCE");
 	const float fPhaseOffsetDegrees = *apvts.getRawParameterValue("PHASE_OFFSET");
 	const float fStartPhaseDegrees = *apvts.getRawParameterValue("START_PHASE");
 	const float fRateOffset = *apvts.getRawParameterValue("RATE_OFFSET");
 	const float fDepthOffset = *apvts.getRawParameterValue("DEPTH_OFFSET");
 	const float fPulseWidthTarget = *apvts.getRawParameterValue("PULSE_WIDTH");
+	const float fMasterRate = *apvts.getRawParameterValue("MASTER_RATE");
 
 	smoothedInputGain.setTargetValue(fInGainTarget);
 	smoothedOutputGain.setTargetValue(fOutGainTarget);
@@ -374,12 +375,7 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
 	smoothedPulseWidth.setTargetValue(fPulseWidthTarget);
 	smoothedBypass.setTargetValue(bBypass ? 1.0f : 0.0f);
 
-	fRate[0] = *apvts.getRawParameterValue("SUB_TREM_RATE");
-	fRate[1] = *apvts.getRawParameterValue("BASS_TREM_RATE");
-	fRate[2] = *apvts.getRawParameterValue("MID_TREM_RATE");
-	fRate[3] = *apvts.getRawParameterValue("TREBLE_TREM_RATE");
-
-	const float fMasterRate = *apvts.getRawParameterValue("MASTER_RATE");
+	TremoloDspUtils::loadFloatParams(apvts, TremoloDspUtils::getRateParamIds(), fRate);
 
 	float fSyncBpm = fTapTempoBpm.load();
 	bool bIsPlaying = false;
@@ -399,168 +395,66 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
 
 	if (bTempoSync)
 	{
-		const float fTempoMultipliers[] = {
-			0.25f, 0.166667f, 0.375f,
-			0.5f, 0.333333f, 0.75f,
-			1.0f, 0.666667f, 1.5f,
-			2.0f, 1.333333f, 3.0f,
-			4.0f, 2.666667f, 6.0f
-		};
-		const int iDivIdx[4] = {
-			juce::jlimit(0, 14, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
-			juce::jlimit(0, 14, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
-			juce::jlimit(0, 14, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
-			juce::jlimit(0, 14, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
-		};
-		const float fBeatsPerSec = fSyncBpm / 60.0f;
-		for (int iBand = 0; iBand < 4; ++iBand)
-			fRate[iBand] = fBeatsPerSec * fTempoMultipliers[iDivIdx[iBand]];
+		TremoloDspUtils::BandIntArray iDivIdx;
+		TremoloDspUtils::loadNoteDivisionIndices(apvts, TremoloDspUtils::getNoteDivisionParamIds(), iDivIdx);
+		TremoloDspUtils::applyTempoSyncRates(fRate, iDivIdx, fSyncBpm);
 	}
 
-	for (int iBand = 0; iBand < 4; ++iBand)
-		fRate[iBand] = juce::jlimit(0.5f, 16.0f, fRate[iBand] * fMasterRate);
+	TremoloDspUtils::applyMasterRateAndLock(fRate, fMasterRate, bRateLock);
+	TremoloDspUtils::loadFloatParams(apvts, TremoloDspUtils::getDepthParamIds(), fDepth);
 
-	if (bRateLock)
-		for (int iBand = 1; iBand < 4; ++iBand)
-			fRate[iBand] = fRate[0];
-
-	fDepth[0] = *apvts.getRawParameterValue("SUB_TREM_DEPTH");
-	fDepth[1] = *apvts.getRawParameterValue("BASS_TREM_DEPTH");
-	fDepth[2] = *apvts.getRawParameterValue("MID_TREM_DEPTH");
-	fDepth[3] = *apvts.getRawParameterValue("TREBLE_TREM_DEPTH");
-
-	for (int iBand = 0; iBand < 4; ++iBand)
+	for (int iBand = 0; iBand < TremoloDspUtils::iBandCount; ++iBand)
 	{
-		smoothedRate[iBand].setTargetValue(fRate[iBand]);
-		smoothedDepth[iBand].setTargetValue(fDepth[iBand]);
+		smoothedRate[iBand].setTargetValue(fRate[static_cast<size_t>(iBand)]);
+		smoothedDepth[iBand].setTargetValue(fDepth[static_cast<size_t>(iBand)]);
 	}
 
 	const float fPhaseOffsetRadians = juce::degreesToRadians(fPhaseOffsetDegrees);
-	if (iTotalNumInputChannels <= 1 || fSurroundWidth <= 0.0f)
-	{
-		for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
-			fPhaseOffset[iChannel] = 0.0f;
-	}
-	else
-	{
-		const float fMaxOffset = fPhaseOffsetRadians * fSurroundWidth;
-		for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
-			fPhaseOffset[iChannel] = fMaxOffset * ((float)iChannel / (float)(iTotalNumInputChannels - 1));
-	}
+	TremoloDspUtils::computePhaseOffsets(fPhaseOffset, iTotalNumInputChannels, fPhaseOffsetRadians, fSurroundWidth);
 
-	float fPresenceFreq = fPresence * 19000.0f + 1000.0f;
-	auto resonanceCoeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, fPresenceFreq, 1.41f, 1.41f);
-	auto subCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 60.0f);
-	auto bassLCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 250.0f);
-	auto bassUCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 60.0f);
-	auto midLCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 2000.0f);
-	auto midUCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 250.0f);
-	auto trebCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 2000.0f);
+	const auto coeffs = TremoloDspUtils::createFilterCoefficients(fSampleRate, fPresence);
+	applyTremoloFilterCoefficients(resonanceFilter, subBass, bassLower, bassUpper, midLower, midUpper, treble, coeffs, iTotalNumInputChannels);
 
-	for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
-	{
-		resonanceFilter[iChannel]->coefficients = resonanceCoeffs;
-		subBass[iChannel]->coefficients = subCoeffs;
-		bassLower[iChannel]->coefficients = bassLCoeffs;
-		bassUpper[iChannel]->coefficients = bassUCoeffs;
-		midLower[iChannel]->coefficients = midLCoeffs;
-		midUpper[iChannel]->coefficients = midUCoeffs;
-		treble[iChannel]->coefficients = trebCoeffs;
-	}
-
-	int iChoice[4];
-	iChoice[0] = (int)*apvts.getRawParameterValue("SUB_TREMOLO");
-	iChoice[1] = (int)*apvts.getRawParameterValue("BASS_TREMOLO");
-	iChoice[2] = (int)*apvts.getRawParameterValue("MID_TREMOLO");
-	iChoice[3] = (int)*apvts.getRawParameterValue("TREBLE_TREMOLO");
+	TremoloDspUtils::BandIntArray iChoice;
+	TremoloDspUtils::loadIntParams(apvts, TremoloDspUtils::getChoiceParamIds(), iChoice);
 
 	float fInputPeak = 0.0f;
 	float fOutputPeak = 0.0f;
 
 	for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
-	{
-		float fChannelScale = 0.0f;
-		if (iTotalNumInputChannels > 1)
-			fChannelScale = (float)iChannel / (float)(iTotalNumInputChannels - 1);
+		processTremoloChannel(buffer, iChannel, iTotalNumInputChannels,
+			smoothedInputGain, smoothedOutputGain, smoothedWet, smoothedPulseWidth, smoothedBypass,
+			smoothedRate, smoothedDepth, tremolo,
+			resonanceFilter, subBass, bassLower, bassUpper, midLower, midUpper, treble,
+			iChoice, fSampleRate, fRateOffset, fDepthOffset, iDepthMode,
+			fPhaseOffset[static_cast<size_t>(iChannel)], fInputPeak, fOutputPeak);
 
-		auto* channelData = buffer.getWritePointer(iChannel);
-
-		for (int iSample = 0; iSample < iNumSamples; ++iSample)
-		{
-			using SampleType = std::remove_reference_t<decltype(channelData[iSample])>;
-
-			const float fInGain = smoothedInputGain.getNextValue();
-			const float fOutGain = smoothedOutputGain.getNextValue();
-			const float fWetDryControl = smoothedWet.getNextValue();
-			const float fPulseWidth = smoothedPulseWidth.getNextValue();
-			const float fBypassMix = smoothedBypass.getNextValue();
-
-			float fChannelRate[4];
-			float fChannelDepth[4];
-			for (int iBand = 0; iBand < 4; ++iBand)
-			{
-				const float fSmoothRate = smoothedRate[iBand].getNextValue();
-				const float fSmoothDepth = smoothedDepth[iBand].getNextValue();
-				fChannelRate[iBand] = juce::jlimit(0.5f, 16.0f, fSmoothRate + (fRateOffset * fChannelScale));
-				fChannelDepth[iBand] = juce::jlimit(0.0f, 1.0f, fSmoothDepth + (fDepthOffset * fChannelScale));
-			}
-
-			auto input = channelData[iSample];
-			auto dry = input * static_cast<SampleType>(fInGain);
-			auto wet = static_cast<SampleType>(resonanceFilter[iChannel]->processSample(static_cast<float>(dry)))
-				* static_cast<SampleType>(1.0f - 0.41f);
-
-			float fBand[4];
-			fBand[0] = subBass[iChannel]->processSample(static_cast<float>(wet));
-			fBand[1] = bassUpper[iChannel]->processSample(static_cast<float>(wet))
-				+ bassLower[iChannel]->processSample(static_cast<float>(dry));
-			fBand[2] = midUpper[iChannel]->processSample(static_cast<float>(wet))
-				+ midLower[iChannel]->processSample(static_cast<float>(dry));
-			fBand[3] = treble[iChannel]->processSample(static_cast<float>(wet));
-
-			tremolo.processChannelBands(iChannel, fBand, fChannelDepth, iChoice, fChannelRate, fSampleRate, fPhaseOffset[iChannel], fPulseWidth, iDepthMode);
-
-			auto summedBands = static_cast<SampleType>(fBand[0]) + static_cast<SampleType>(fBand[1])
-				+ static_cast<SampleType>(fBand[2]) + static_cast<SampleType>(fBand[3]);
-			auto processed = (summedBands * static_cast<SampleType>(fWetDryControl))
-				+ (dry * (static_cast<SampleType>(1.0f) - static_cast<SampleType>(fWetDryControl)));
-			processed *= static_cast<SampleType>(fOutGain);
-
-			auto output = (processed * static_cast<SampleType>(1.0f - fBypassMix))
-				+ (input * static_cast<SampleType>(fBypassMix));
-			channelData[iSample] = output;
-
-			fInputPeak = juce::jmax(fInputPeak, std::abs(static_cast<float>(input)));
-			fOutputPeak = juce::jmax(fOutputPeak, std::abs(static_cast<float>(output)));
-		}
-	}
-
-	fInputMeterLevel.store(juce::jmax(fInputPeak, fInputMeterLevel.load() * 0.9f));
-	fOutputMeterLevel.store(juce::jmax(fOutputPeak, fOutputMeterLevel.load() * 0.9f));
+	TremoloDspUtils::updateMeterLevel(fInputMeterLevel, fInputPeak);
+	TremoloDspUtils::updateMeterLevel(fOutputMeterLevel, fOutputPeak);
 }
 
 void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<double>& buffer, juce::MidiBuffer&)
 {
 	juce::ScopedNoDenormals noDenormals;
-	auto iTotalNumInputChannels = getTotalNumInputChannels();
-	auto iNumSamples = buffer.getNumSamples();
+	const int iTotalNumInputChannels = getTotalNumInputChannels();
 
 	const bool bBypass = *apvts.getRawParameterValue("BYPASS") > 0.5f;
 	const bool bTempoSync = *apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
 	const bool bRateLock = *apvts.getRawParameterValue("RATE_LOCK") > 0.5f;
 	const bool bRetriggerOnPlay = *apvts.getRawParameterValue("RETRIGGER_ON_PLAY") > 0.5f;
 	const float fSurroundWidth = juce::jlimit(0.0f, 1.0f, apvts.getRawParameterValue("SURROUND_WIDTH")->load());
-	const int iDepthMode = (int)*apvts.getRawParameterValue("DEPTH_MODE");
+	const int iDepthMode = static_cast<int>(*apvts.getRawParameterValue("DEPTH_MODE"));
 
-	const float fInGainTarget = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
-	const float fOutGainTarget = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
-	const float fWetDryTarget = std::pow(*apvts.getRawParameterValue("WET"), 3.0f);
+	const float fInGainTarget = TremoloDspUtils::applyControlCurve(*apvts.getRawParameterValue("INPUT_GAIN"));
+	const float fOutGainTarget = TremoloDspUtils::applyControlCurve(*apvts.getRawParameterValue("OUTPUT_GAIN"));
+	const float fWetDryTarget = TremoloDspUtils::applyControlCurve(*apvts.getRawParameterValue("WET"));
 	const float fPresence = *apvts.getRawParameterValue("PRESENCE");
 	const float fPhaseOffsetDegrees = *apvts.getRawParameterValue("PHASE_OFFSET");
 	const float fStartPhaseDegrees = *apvts.getRawParameterValue("START_PHASE");
 	const float fRateOffset = *apvts.getRawParameterValue("RATE_OFFSET");
 	const float fDepthOffset = *apvts.getRawParameterValue("DEPTH_OFFSET");
 	const float fPulseWidthTarget = *apvts.getRawParameterValue("PULSE_WIDTH");
+	const float fMasterRate = *apvts.getRawParameterValue("MASTER_RATE");
 
 	smoothedInputGain.setTargetValue(fInGainTarget);
 	smoothedOutputGain.setTargetValue(fOutGainTarget);
@@ -568,12 +462,7 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<double>& buffe
 	smoothedPulseWidth.setTargetValue(fPulseWidthTarget);
 	smoothedBypass.setTargetValue(bBypass ? 1.0f : 0.0f);
 
-	fRate[0] = *apvts.getRawParameterValue("SUB_TREM_RATE");
-	fRate[1] = *apvts.getRawParameterValue("BASS_TREM_RATE");
-	fRate[2] = *apvts.getRawParameterValue("MID_TREM_RATE");
-	fRate[3] = *apvts.getRawParameterValue("TREBLE_TREM_RATE");
-
-	const float fMasterRate = *apvts.getRawParameterValue("MASTER_RATE");
+	TremoloDspUtils::loadFloatParams(apvts, TremoloDspUtils::getRateParamIds(), fRate);
 
 	float fSyncBpm = fTapTempoBpm.load();
 	bool bIsPlaying = false;
@@ -593,144 +482,42 @@ void AutoTremolandoAudioProcessor::processBlock(juce::AudioBuffer<double>& buffe
 
 	if (bTempoSync)
 	{
-		const float fTempoMultipliers[] = {
-			0.25f, 0.166667f, 0.375f,
-			0.5f, 0.333333f, 0.75f,
-			1.0f, 0.666667f, 1.5f,
-			2.0f, 1.333333f, 3.0f,
-			4.0f, 2.666667f, 6.0f
-		};
-		const int iDivIdx[4] = {
-			juce::jlimit(0, 14, (int)*apvts.getRawParameterValue("SUB_NOTE_DIV")),
-			juce::jlimit(0, 14, (int)*apvts.getRawParameterValue("BASS_NOTE_DIV")),
-			juce::jlimit(0, 14, (int)*apvts.getRawParameterValue("MID_NOTE_DIV")),
-			juce::jlimit(0, 14, (int)*apvts.getRawParameterValue("TREBLE_NOTE_DIV"))
-		};
-		const float fBeatsPerSec = fSyncBpm / 60.0f;
-		for (int iBand = 0; iBand < 4; ++iBand)
-			fRate[iBand] = fBeatsPerSec * fTempoMultipliers[iDivIdx[iBand]];
+		TremoloDspUtils::BandIntArray iDivIdx;
+		TremoloDspUtils::loadNoteDivisionIndices(apvts, TremoloDspUtils::getNoteDivisionParamIds(), iDivIdx);
+		TremoloDspUtils::applyTempoSyncRates(fRate, iDivIdx, fSyncBpm);
 	}
 
-	for (int iBand = 0; iBand < 4; ++iBand)
-		fRate[iBand] = juce::jlimit(0.5f, 16.0f, fRate[iBand] * fMasterRate);
+	TremoloDspUtils::applyMasterRateAndLock(fRate, fMasterRate, bRateLock);
+	TremoloDspUtils::loadFloatParams(apvts, TremoloDspUtils::getDepthParamIds(), fDepth);
 
-	if (bRateLock)
-		for (int iBand = 1; iBand < 4; ++iBand)
-			fRate[iBand] = fRate[0];
-
-	fDepth[0] = *apvts.getRawParameterValue("SUB_TREM_DEPTH");
-	fDepth[1] = *apvts.getRawParameterValue("BASS_TREM_DEPTH");
-	fDepth[2] = *apvts.getRawParameterValue("MID_TREM_DEPTH");
-	fDepth[3] = *apvts.getRawParameterValue("TREBLE_TREM_DEPTH");
-
-	for (int iBand = 0; iBand < 4; ++iBand)
+	for (int iBand = 0; iBand < TremoloDspUtils::iBandCount; ++iBand)
 	{
-		smoothedRate[iBand].setTargetValue(fRate[iBand]);
-		smoothedDepth[iBand].setTargetValue(fDepth[iBand]);
+		smoothedRate[iBand].setTargetValue(fRate[static_cast<size_t>(iBand)]);
+		smoothedDepth[iBand].setTargetValue(fDepth[static_cast<size_t>(iBand)]);
 	}
 
 	const float fPhaseOffsetRadians = juce::degreesToRadians(fPhaseOffsetDegrees);
-	if (iTotalNumInputChannels <= 1 || fSurroundWidth <= 0.0f)
-	{
-		for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
-			fPhaseOffset[iChannel] = 0.0f;
-	}
-	else
-	{
-		const float fMaxOffset = fPhaseOffsetRadians * fSurroundWidth;
-		for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
-			fPhaseOffset[iChannel] = fMaxOffset * ((float)iChannel / (float)(iTotalNumInputChannels - 1));
-	}
+	TremoloDspUtils::computePhaseOffsets(fPhaseOffset, iTotalNumInputChannels, fPhaseOffsetRadians, fSurroundWidth);
 
-	float fPresenceFreq = fPresence * 19000.0f + 1000.0f;
-	auto resonanceCoeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, fPresenceFreq, 1.41f, 1.41f);
-	auto subCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 60.0f);
-	auto bassLCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 250.0f);
-	auto bassUCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 60.0f);
-	auto midLCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 2000.0f);
-	auto midUCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 250.0f);
-	auto trebCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 2000.0f);
+	const auto coeffs = TremoloDspUtils::createFilterCoefficients(fSampleRate, fPresence);
+	applyTremoloFilterCoefficients(resonanceFilter, subBass, bassLower, bassUpper, midLower, midUpper, treble, coeffs, iTotalNumInputChannels);
 
-	for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
-	{
-		resonanceFilter[iChannel]->coefficients = resonanceCoeffs;
-		subBass[iChannel]->coefficients = subCoeffs;
-		bassLower[iChannel]->coefficients = bassLCoeffs;
-		bassUpper[iChannel]->coefficients = bassUCoeffs;
-		midLower[iChannel]->coefficients = midLCoeffs;
-		midUpper[iChannel]->coefficients = midUCoeffs;
-		treble[iChannel]->coefficients = trebCoeffs;
-	}
-
-	int iChoice[4];
-	iChoice[0] = (int)*apvts.getRawParameterValue("SUB_TREMOLO");
-	iChoice[1] = (int)*apvts.getRawParameterValue("BASS_TREMOLO");
-	iChoice[2] = (int)*apvts.getRawParameterValue("MID_TREMOLO");
-	iChoice[3] = (int)*apvts.getRawParameterValue("TREBLE_TREMOLO");
+	TremoloDspUtils::BandIntArray iChoice;
+	TremoloDspUtils::loadIntParams(apvts, TremoloDspUtils::getChoiceParamIds(), iChoice);
 
 	float fInputPeak = 0.0f;
 	float fOutputPeak = 0.0f;
 
 	for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
-	{
-		float fChannelScale = 0.0f;
-		if (iTotalNumInputChannels > 1)
-			fChannelScale = (float)iChannel / (float)(iTotalNumInputChannels - 1);
+		processTremoloChannel(buffer, iChannel, iTotalNumInputChannels,
+			smoothedInputGain, smoothedOutputGain, smoothedWet, smoothedPulseWidth, smoothedBypass,
+			smoothedRate, smoothedDepth, tremolo,
+			resonanceFilter, subBass, bassLower, bassUpper, midLower, midUpper, treble,
+			iChoice, fSampleRate, fRateOffset, fDepthOffset, iDepthMode,
+			fPhaseOffset[static_cast<size_t>(iChannel)], fInputPeak, fOutputPeak);
 
-		auto* channelData = buffer.getWritePointer(iChannel);
-
-		for (int iSample = 0; iSample < iNumSamples; ++iSample)
-		{
-			using SampleType = std::remove_reference_t<decltype(channelData[iSample])>;
-
-			const float fInGain = smoothedInputGain.getNextValue();
-			const float fOutGain = smoothedOutputGain.getNextValue();
-			const float fWetDryControl = smoothedWet.getNextValue();
-			const float fPulseWidth = smoothedPulseWidth.getNextValue();
-			const float fBypassMix = smoothedBypass.getNextValue();
-
-			float fChannelRate[4];
-			float fChannelDepth[4];
-			for (int iBand = 0; iBand < 4; ++iBand)
-			{
-				const float fSmoothRate = smoothedRate[iBand].getNextValue();
-				const float fSmoothDepth = smoothedDepth[iBand].getNextValue();
-				fChannelRate[iBand] = juce::jlimit(0.5f, 16.0f, fSmoothRate + (fRateOffset * fChannelScale));
-				fChannelDepth[iBand] = juce::jlimit(0.0f, 1.0f, fSmoothDepth + (fDepthOffset * fChannelScale));
-			}
-
-			auto input = channelData[iSample];
-			auto dry = input * static_cast<SampleType>(fInGain);
-			auto wet = static_cast<SampleType>(resonanceFilter[iChannel]->processSample(static_cast<float>(dry)))
-				* static_cast<SampleType>(1.0f - 0.41f);
-
-			float fBand[4];
-			fBand[0] = subBass[iChannel]->processSample(static_cast<float>(wet));
-			fBand[1] = bassUpper[iChannel]->processSample(static_cast<float>(wet))
-				+ bassLower[iChannel]->processSample(static_cast<float>(dry));
-			fBand[2] = midUpper[iChannel]->processSample(static_cast<float>(wet))
-				+ midLower[iChannel]->processSample(static_cast<float>(dry));
-			fBand[3] = treble[iChannel]->processSample(static_cast<float>(wet));
-
-			tremolo.processChannelBands(iChannel, fBand, fChannelDepth, iChoice, fChannelRate, fSampleRate, fPhaseOffset[iChannel], fPulseWidth, iDepthMode);
-
-			auto summedBands = static_cast<SampleType>(fBand[0]) + static_cast<SampleType>(fBand[1])
-				+ static_cast<SampleType>(fBand[2]) + static_cast<SampleType>(fBand[3]);
-			auto processed = (summedBands * static_cast<SampleType>(fWetDryControl))
-				+ (dry * (static_cast<SampleType>(1.0f) - static_cast<SampleType>(fWetDryControl)));
-			processed *= static_cast<SampleType>(fOutGain);
-
-			auto output = (processed * static_cast<SampleType>(1.0f - fBypassMix))
-				+ (input * static_cast<SampleType>(fBypassMix));
-			channelData[iSample] = output;
-
-			fInputPeak = juce::jmax(fInputPeak, std::abs(static_cast<float>(input)));
-			fOutputPeak = juce::jmax(fOutputPeak, std::abs(static_cast<float>(output)));
-		}
-	}
-
-	fInputMeterLevel.store(juce::jmax(fInputPeak, fInputMeterLevel.load() * 0.9f));
-	fOutputMeterLevel.store(juce::jmax(fOutputPeak, fOutputMeterLevel.load() * 0.9f));
+	TremoloDspUtils::updateMeterLevel(fInputMeterLevel, fInputPeak);
+	TremoloDspUtils::updateMeterLevel(fOutputMeterLevel, fOutputPeak);
 }
 
 bool AutoTremolandoAudioProcessor::supportsDoublePrecisionProcessing() const
@@ -739,35 +526,36 @@ bool AutoTremolandoAudioProcessor::supportsDoublePrecisionProcessing() const
 }
 
 //==============================================================================
-bool AutoTremolandoAudioProcessor::hasEditor() const
+bool AutoTremolandoAudioProcessor::hasEditor() const // Connects processor state to the plugin user interface.
 {
-    return true;
+	return true;
 }
 
-juce::AudioProcessorEditor* AutoTremolandoAudioProcessor::createEditor()
+juce::AudioProcessorEditor* AutoTremolandoAudioProcessor::createEditor() // Connects processor state to the plugin user interface.
 {
-    return new AutoTremolandoAudioProcessorEditor(*this);
+	return new AutoTremolandoAudioProcessorEditor(*this);
 }
 
 //==============================================================================
-void AutoTremolandoAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
+void AutoTremolandoAudioProcessor::getStateInformation(juce::MemoryBlock& destData) // Persists and restores plugin settings across sessions.
 {
-    auto state = apvts.copyState();
-    std::unique_ptr<juce::XmlElement> xml(state.createXml());
-    copyXmlToBinary(*xml, destData);
+	auto state = apvts.copyState(); // Persists and restores plugin settings across sessions.
+	std::unique_ptr<juce::XmlElement> xml(state.createXml());
+	copyXmlToBinary(*xml, destData);
 }
 
-void AutoTremolandoAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
+void AutoTremolandoAudioProcessor::setStateInformation(const void* data, int sizeInBytes) // Persists and restores plugin settings across sessions.
 {
-    std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
-    if (xmlState != nullptr)
-        if (xmlState->hasTagName(apvts.state.getType()))
-            apvts.replaceState(juce::ValueTree::fromXml(*xmlState));
+	std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
+	if (xmlState != nullptr) // Branches logic to keep modulation behaviour context-aware.
+		if (xmlState->hasTagName(apvts.state.getType())) // Persists and restores plugin settings across sessions.
+			apvts.replaceState(juce::ValueTree::fromXml(*xmlState)); // Persists and restores plugin settings across sessions.
 }
 
 //==============================================================================
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new AutoTremolandoAudioProcessor();
+	return new AutoTremolandoAudioProcessor();
 }
+
 
