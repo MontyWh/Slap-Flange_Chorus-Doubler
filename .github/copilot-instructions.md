@@ -16,6 +16,9 @@
 
 ## Logic Placement
 - When moving logic to PluginExtra.h, only move DSP math/processing helpers there; keep UI-related logic and metadata out of PluginExtra.
+- Encapsulate smoothing logic in Source/PluginExtra.h and invoke it from other files while preserving existing behaviour and code format.
+- Use grouped section header comments above logical code groups (not function/class-level header comments), while keeping key right-side inline comments for important DSP lines.
+- Comment headers must use a three-line separator format (//======================================================================, // <section title>, //======================================================================), and all comments must use UK spelling.
 
 ## Language Preferences
 - Use UK English wording throughout the code and comments.

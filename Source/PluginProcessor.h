@@ -23,6 +23,9 @@
 class AutoTremolandoAudioProcessor : public juce::AudioProcessor
 {
 public:
+    //==============================================================================
+    // Host lifecycle and realtime audio entry points
+    //==============================================================================
     AutoTremolandoAudioProcessor();
     ~AutoTremolandoAudioProcessor() override;
 
@@ -56,9 +59,15 @@ public:
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
+    //==============================================================================
+    // Shared parameter state and undo integration
+    //==============================================================================
     juce::AudioProcessorValueTreeState apvts;
     juce::UndoManager undoManager;
 
+    //==============================================================================
+    // Preset surface exposed to the editor
+    //==============================================================================
     struct Preset {
         juce::String sName;
         std::vector<float> fValues;
@@ -73,34 +82,54 @@ public:
     float getOutputMeterLevel() const;
 
 private:
+    //==============================================================================
+    // Preset construction and parameter mapping helpers
+    //==============================================================================
     std::vector<Preset> presets;
     void initPresets();
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
 
+    static const std::array<const char*, TremoloEffect::iBandCount>& getRateParamIds();
+    static const std::array<const char*, TremoloEffect::iBandCount>& getDepthParamIds();
+    static const std::array<const char*, TremoloEffect::iBandCount>& getChoiceParamIds();
+    static const std::array<const char*, TremoloEffect::iBandCount>& getNoteDivisionParamIds();
+
+    //==============================================================================
+    // DSP runtime state shared across audio callbacks
+    //==============================================================================
     float fSampleRate = 0.0f;
 
-    TremoloDspUtils::BandFloatArray fRate { 5.0f, 5.0f, 5.0f, 5.0f };
-    TremoloDspUtils::BandFloatArray fDepth { 0.5f, 0.5f, 0.5f, 0.5f };
+    TremoloEffect::BandFloatArray fRate { 5.0f, 5.0f, 5.0f, 5.0f };
+    TremoloEffect::BandFloatArray fDepth { 0.5f, 0.5f, 0.5f, 0.5f };
 
     // Per-channel phase offset (sized in prepareToPlay)
     std::vector<float> fPhaseOffset;
 
-    TremoloProcess tremolo;
+    TremoloEffect tremolo;
 
+    //==============================================================================
+    // Smoothed controls used by the realtime thread
+    //==============================================================================
     juce::LinearSmoothedValue<float> smoothedInputGain;
     juce::LinearSmoothedValue<float> smoothedOutputGain;
     juce::LinearSmoothedValue<float> smoothedWet;
     juce::LinearSmoothedValue<float> smoothedPulseWidth;
     juce::LinearSmoothedValue<float> smoothedBypass;
-    juce::LinearSmoothedValue<float> smoothedRate[4];
-    juce::LinearSmoothedValue<float> smoothedDepth[4];
+    juce::LinearSmoothedValue<float> smoothedRate[TremoloEffect::iBandCount];
+    juce::LinearSmoothedValue<float> smoothedDepth[TremoloEffect::iBandCount];
 
+    //==============================================================================
+    // Thread-safe transport, tap-tempo, and metering state
+    //==============================================================================
     std::atomic<float> fTapTempoBpm { 120.0f };
     std::atomic<double> dLastTapTimeMs { 0.0 };
     std::atomic<float> fInputMeterLevel { 0.0f };
     std::atomic<float> fOutputMeterLevel { 0.0f };
     bool bWasPlaying = false;
 
+    //==============================================================================
+    // Multiband filter objects (one chain per channel)
+    //==============================================================================
     using Filter = juce::dsp::IIR::Filter<float>;
     using MultiChannelFilter = juce::OwnedArray<Filter>;
 
