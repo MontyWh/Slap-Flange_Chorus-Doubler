@@ -4,7 +4,10 @@
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
   <MAINGROUP id="SXhwtk" name="AutoTremolando">
     <GROUP id="{E04AD64D-FCDF-0798-8B0D-B2CF9FB58D09}" name="Source">
-      <FILE id="zydxc7" name="PluginExtra.h" compile="0" resource="0" file="Source/PluginExtra.h"/>
+      <GROUP id="{96C1204B-2331-74EC-E764-31E701326063}" name="Effects">
+        <FILE id="phWOWO" name="Tremolo.h" compile="0" resource="0" file="Source/Effects/Tremolo.h"/>
+        <FILE id="ms9fYK" name="TremoloOld.h" compile="0" resource="0" file="Source/Effects/TremoloOld.h"/>
+      </GROUP>
       <FILE id="EDoVvo" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="mVoaPB" name="PluginProcessor.h" compile="0" resource="0"

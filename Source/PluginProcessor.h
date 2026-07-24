@@ -1,13 +1,12 @@
 /*
   ==============================================================================
 
-    AutoTremolando processor declaration.
-    This class owns the plugin parameter state, smoothing state, band filters,
-    and the realtime tremolo DSP entry points used by the audio thread.
-
     Plugin: AutoTremolando
     GitHub: MontyWh
     Author: Montague Whishaw
+    Date/Time: 24th April 2026
+
+    This file contains the basic framework code for a JUCE plugin processor.
 
   ==============================================================================
 */
@@ -15,34 +14,35 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "PluginExtra.h"
+#include <array>
 #include <atomic>
+#include <vector>
 
 //==============================================================================
-// Main audio engine: host lifecycle callbacks + multiband tremolo processing.
-class AutoTremolandoAudioProcessor : public juce::AudioProcessor
+class AutoTremolandoAudioProcessor  : public juce::AudioProcessor
 {
 public:
-    //==============================================================================
-    // Host lifecycle and realtime audio entry points
     //==============================================================================
     AutoTremolandoAudioProcessor();
     ~AutoTremolandoAudioProcessor() override;
 
-    void prepareToPlay(double sampleRate, int samplesPerBlock) override;
+    //==============================================================================
+    void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
 
 #ifndef JucePlugin_PreferredChannelConfigurations
-    bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
+    bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
 #endif
 
-    void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
-    void processBlock(juce::AudioBuffer<double>&, juce::MidiBuffer&) override;
+    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    void processBlock (juce::AudioBuffer<double>&, juce::MidiBuffer&) override;
     bool supportsDoublePrecisionProcessing() const override;
 
+    //==============================================================================
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override;
 
+    //==============================================================================
     const juce::String getName() const override;
 
     bool acceptsMidi() const override;
@@ -50,30 +50,27 @@ public:
     bool isMidiEffect() const override;
     double getTailLengthSeconds() const override;
 
+    //==============================================================================
     int getNumPrograms() override;
     int getCurrentProgram() override;
-    void setCurrentProgram(int index) override;
-    const juce::String getProgramName(int index) override;
-    void changeProgramName(int index, const juce::String& newName) override;
-
-    void getStateInformation(juce::MemoryBlock& destData) override;
-    void setStateInformation(const void* data, int sizeInBytes) override;
+    void setCurrentProgram (int index) override;
+    const juce::String getProgramName (int index) override;
+    void changeProgramName (int index, const juce::String& newName) override;
 
     //==============================================================================
-    // Shared parameter state and undo integration
-    //==============================================================================
+    void getStateInformation (juce::MemoryBlock& destData) override;
+    void setStateInformation (const void* data, int sizeInBytes) override;
+
     juce::AudioProcessorValueTreeState apvts;
     juce::UndoManager undoManager;
 
-    //==============================================================================
-    // Preset surface exposed to the editor
-    //==============================================================================
-    struct Preset {
+    struct Preset
+    {
         juce::String sName;
         std::vector<float> fValues;
     };
 
-    void loadPreset(int index);
+    void loadPreset (int index);
     const std::vector<Preset>& getPresets() const { return presets; }
 
     void registerTapTempo();
@@ -82,58 +79,63 @@ public:
     float getOutputMeterLevel() const;
 
 private:
-    //==============================================================================
-    // Preset construction and parameter mapping helpers
-    //==============================================================================
+    static constexpr int iBandCount = 4;
+    static constexpr int iNoteDivisionCount = 15;
+
+    using BandFloatArray = std::array<float, iBandCount>;
+    using BandIntArray = std::array<int, iBandCount>;
+
+    struct FilterCoefficients
+    {
+        juce::dsp::IIR::Coefficients<float>::Ptr resonance;
+        juce::dsp::IIR::Coefficients<float>::Ptr sub;
+        juce::dsp::IIR::Coefficients<float>::Ptr bassLower;
+        juce::dsp::IIR::Coefficients<float>::Ptr bassUpper;
+        juce::dsp::IIR::Coefficients<float>::Ptr midLower;
+        juce::dsp::IIR::Coefficients<float>::Ptr midUpper;
+        juce::dsp::IIR::Coefficients<float>::Ptr treble;
+    };
+
     std::vector<Preset> presets;
     void initPresets();
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
 
-    static const std::array<const char*, TremoloEffect::iBandCount>& getRateParamIds();
-    static const std::array<const char*, TremoloEffect::iBandCount>& getDepthParamIds();
-    static const std::array<const char*, TremoloEffect::iBandCount>& getChoiceParamIds();
-    static const std::array<const char*, TremoloEffect::iBandCount>& getNoteDivisionParamIds();
+    static const std::array<const char*, iBandCount>& getRateParamIds();
+    static const std::array<const char*, iBandCount>& getDepthParamIds();
+    static const std::array<const char*, iBandCount>& getChoiceParamIds();
+    static const std::array<const char*, iBandCount>& getNoteDivisionParamIds();
 
-    //==============================================================================
-    // DSP runtime state shared across audio callbacks
-    //==============================================================================
+    template <typename SampleType>
+    void processAudioBlock (juce::AudioBuffer<SampleType>& buffer);
+
     float fSampleRate = 0.0f;
 
-    TremoloEffect::BandFloatArray fRate { 5.0f, 5.0f, 5.0f, 5.0f };
-    TremoloEffect::BandFloatArray fDepth { 0.5f, 0.5f, 0.5f, 0.5f };
+    BandFloatArray fRate { 5.0f, 5.0f, 5.0f, 5.0f };
+    BandFloatArray fDepth { 0.5f, 0.5f, 0.5f, 0.5f };
 
-    // Per-channel phase offset (sized in prepareToPlay)
     std::vector<float> fPhaseOffset;
 
-    TremoloEffect tremolo;
+    std::vector<BandFloatArray> fPhasePos;
+    BandFloatArray fPhaseInc { 0.0f, 0.0f, 0.0f, 0.0f };
 
-    //==============================================================================
-    // Smoothed controls used by the realtime thread
-    //==============================================================================
     juce::LinearSmoothedValue<float> smoothedInputGain;
     juce::LinearSmoothedValue<float> smoothedOutputGain;
     juce::LinearSmoothedValue<float> smoothedWet;
     juce::LinearSmoothedValue<float> smoothedPulseWidth;
     juce::LinearSmoothedValue<float> smoothedBypass;
-    juce::LinearSmoothedValue<float> smoothedRate[TremoloEffect::iBandCount];
-    juce::LinearSmoothedValue<float> smoothedDepth[TremoloEffect::iBandCount];
+    juce::LinearSmoothedValue<float> smoothedRate[iBandCount];
+    juce::LinearSmoothedValue<float> smoothedDepth[iBandCount];
 
-    //==============================================================================
-    // Thread-safe transport, tap-tempo, and metering state
-    //==============================================================================
     std::atomic<float> fTapTempoBpm { 120.0f };
     std::atomic<double> dLastTapTimeMs { 0.0 };
     std::atomic<float> fInputMeterLevel { 0.0f };
     std::atomic<float> fOutputMeterLevel { 0.0f };
     bool bWasPlaying = false;
 
-    //==============================================================================
-    // Multiband filter objects (one chain per channel)
-    //==============================================================================
     using Filter = juce::dsp::IIR::Filter<float>;
     using MultiChannelFilter = juce::OwnedArray<Filter>;
 
     MultiChannelFilter subBass, bassLower, bassUpper, midLower, midUpper, treble, resonanceFilter;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AutoTremolandoAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AutoTremolandoAudioProcessor)
 };

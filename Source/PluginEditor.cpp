@@ -1,26 +1,21 @@
 /*
   ==============================================================================
 
-    AutoTremolando editor implementation.
-    Contains layout, control attachments, and UI interaction behaviour.
-
     Plugin: AutoTremolando
     GitHub: MontyWh
     Author: Montague Whishaw
+	Date/Time: 24th April 2026
+    
+    This file contains the basic framework code for a JUCE plugin editor.
 
   ==============================================================================
 */
 
-#include "PluginEditor.h"
 #include "PluginProcessor.h"
+#include "PluginEditor.h"
 
-// Editor implementation: layout, control attachments, and UI interaction logic.
-//==============================================================================
-// UI scaling helpers shared by constructor/layout
-//==============================================================================
 namespace
 {
-    // Screen-aware scaling keeps the dense control layout usable on small displays.
     constexpr int iBaseEditorWidth = 1400;
     constexpr int iBaseEditorHeight = 700;
     constexpr float fTargetScreenCoverage = 0.85f;
@@ -46,10 +41,6 @@ namespace
     }
 }
 
-//==============================================================================
-// Common widget setup utilities
-//==============================================================================
-// Helper for consistent slider setup
 static void setupSlider(juce::Slider& s, const float uiScale)
 {
     s.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
@@ -57,20 +48,17 @@ static void setupSlider(juce::Slider& s, const float uiScale)
 }
 
 //==============================================================================
-// Editor construction: controls, attachments, and interactions
-//==============================================================================
-AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremolandoAudioProcessor& p)
-    : AudioProcessorEditor(&p),
-      inputMeterBar(dInputMeterDisplay),
-      outputMeterBar(dOutputMeterDisplay),
-      audioProcessor(p)
+AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTremolandoAudioProcessor& p)
+    : AudioProcessorEditor (&p),
+      inputMeterBar (dInputMeterDisplay),
+      outputMeterBar (dOutputMeterDisplay),
+      audioProcessor (p)
 {
+    // Make sure that before the constructor has finished, you've set the
+    // editor's size to whatever you need it to be.
     const float fUiScale = fGetScreenLinkedUiScale();
     setSize(iScaled(iBaseEditorWidth, fUiScale), iScaled(iBaseEditorHeight, fUiScale));
 
-    //==============================================================================
-    // Parameter IDs in DSP signal-chain order
-    //==============================================================================
     const juce::String sParamIDs[iNumParameters] =
     {
         "INPUT_GAIN", "PRESENCE",
@@ -93,9 +81,6 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
         "Wet", "Output", "Bypass"
     };
 
-    //==============================================================================
-    // Create sliders + labels
-    //==============================================================================
     for (int i = 0; i < iNumParameters; ++i)
     {
         setupSlider(parameters[i], fUiScale);
@@ -122,9 +107,6 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
 
     startPhaseAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "START_PHASE", startPhaseSlider);
 
-    //==============================================================================
-    // Tremolo type menus
-    //==============================================================================
     juce::ComboBox* menus[4] =
     {
         &subTremMenu, &bassTremMenu, &midTremMenu, &trebleTremMenu
@@ -158,9 +140,6 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
     midTremAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "MID_TREMOLO", midTremMenu);
     trebleTremAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "TREBLE_TREMOLO", trebleTremMenu);
 
-    //==============================================================================
-    // Preset menu
-    //==============================================================================
     presetLabel.setText("Presets", juce::dontSendNotification);
     presetLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(presetLabel);
@@ -190,9 +169,6 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
             audioProcessor.resetParametersToDefaults();
         };
 
-    //==============================================================================
-    // Bypass button
-    //==============================================================================
     bypassLabel.setText("Bypass", juce::dontSendNotification);
     bypassLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(bypassLabel);
@@ -209,9 +185,6 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
             bypassButton.setButtonText(bNewBypass ? "ON" : "OFF");
         };
 
-    //==============================================================================
-    // Sync mode: Time vs Tempo
-    //==============================================================================
     tempoSyncLabel.setText("Sync Mode", juce::dontSendNotification);
     tempoSyncLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(tempoSyncLabel);
@@ -279,9 +252,6 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
 
     startTimerHz(30);
 
-    //==============================================================================
-    // Division rotary sliders (note divisions for Tempo, time values for Time-based)
-    //==============================================================================
     auto setupDivisionSlider = [this](juce::Slider& slider, juce::Label& label, juce::Label& valueLabel, const juce::String& paramID)
         {
             slider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
@@ -307,7 +277,6 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
     midNoteDivAttach    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "MID_NOTE_DIV",    midNoteDivSlider);
     trebleNoteDivAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "TREBLE_NOTE_DIV", trebleNoteDivSlider);
 
-    // Lambda to update value labels based on sync mode
     auto updateDivisionLabels = [this]()
         {
             auto updateLabel = [this](juce::Slider& slider, juce::Label& valueLabel)
@@ -385,7 +354,6 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
             updateDivisionLabels();
         };
 
-    // Add slider value change listeners
     auto makeDivisionSliderListener = [syncLinkedTimeControls, updateDivisionLabels](juce::Slider& slider)
         {
             slider.onValueChange = [syncLinkedTimeControls, updateDivisionLabels]()
@@ -437,7 +405,6 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
             updateSyncModeUi();
         };
 
-    // Initialise division menus and labels based on current sync mode
     bCurrentSync = *audioProcessor.apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
     updateSyncModeUi();
 
@@ -446,12 +413,10 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor(AutoTremo
 
 //==============================================================================
 
-AutoTremolandoAudioProcessorEditor::~AutoTremolandoAudioProcessorEditor() {}
+AutoTremolandoAudioProcessorEditor::~AutoTremolandoAudioProcessorEditor()
+{
+}
 
-
-//==============================================================================
-// Runtime UI state refresh and meter repaint
-//==============================================================================
 void AutoTremolandoAudioProcessorEditor::updateChannelSpreadUiState()
 {
     const bool bEnableChannelSpread = audioProcessor.getTotalNumOutputChannels() > 1;
@@ -480,21 +445,20 @@ void AutoTremolandoAudioProcessorEditor::timerCallback()
 }
 
 //==============================================================================
-// Paint pass
-//==============================================================================
-void AutoTremolandoAudioProcessorEditor::paint(juce::Graphics& g)
+void AutoTremolandoAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    g.fillAll(juce::Colours::black);
-    g.setColour(juce::Colours::white);
-    g.setFont(18.0f);
-    g.drawFittedText("AutoTremolando", getLocalBounds(), juce::Justification::centredTop, 1);
+    // (Our component is opaque, so we must completely fill the background with a solid colour)
+    g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
+
+    g.setColour (juce::Colours::white);
+    g.setFont (juce::FontOptions (15.0f));
+    g.drawFittedText ("AutoTremolando", getLocalBounds(), juce::Justification::centredTop, 1);
 }
 
-//==============================================================================
-// Responsive control layout pass
-//==============================================================================
 void AutoTremolandoAudioProcessorEditor::resized()
 {
+    // This is generally where you'll want to lay out the positions of any
+    // subcomponents in your editor..
     const float fUiScale = juce::jmin(
         static_cast<float>(getWidth()) / static_cast<float>(iBaseEditorWidth),
         static_cast<float>(getHeight()) / static_cast<float>(iBaseEditorHeight));
@@ -504,101 +468,91 @@ void AutoTremolandoAudioProcessorEditor::resized()
     const int iSliderH = iScaled(120, fUiScale);
     const int iLabelH = iScaled(20, fUiScale);
 
-    //==============================================================================
-    // Sliders in literal DSP signal-chain order (left grid)
-    //==============================================================================
     int iX = iMargin;
     int iY = iScaled(60, fUiScale);
 
-    // Row 1 (4 items) - Input, Presence, Pulse Width, Start Phase
-    parameters[0].setBounds(iX, iY, iSliderW, iSliderH);   // Input Gain
+    parameters[0].setBounds(iX, iY, iSliderW, iSliderH);
     labels[0].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
     iX += iSliderW + iMargin;
 
-    parameters[1].setBounds(iX, iY, iSliderW, iSliderH);   // Presence
+    parameters[1].setBounds(iX, iY, iSliderW, iSliderH);
     labels[1].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
     iX += iSliderW + iMargin;
 
-    parameters[18].setBounds(iX, iY, iSliderW, iSliderH);  // Pulse Width
+    parameters[18].setBounds(iX, iY, iSliderW, iSliderH);
     labels[18].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
     iX += iSliderW + iMargin;
 
     startPhaseSlider.setBounds(iX, iY, iSliderW, iSliderH);
     startPhaseLabel.setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
 
-    // Row 2 (4 items) - Rates grouped
     iX = iMargin;
     iY += iSliderH + iLabelH + iMargin;
 
-    parameters[7].setBounds(iX, iY, iSliderW, iSliderH);   // Sub Rate
+    parameters[7].setBounds(iX, iY, iSliderW, iSliderH);
     labels[7].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
     iX += iSliderW + iMargin;
 
-    parameters[8].setBounds(iX, iY, iSliderW, iSliderH);   // Bass Rate
+    parameters[8].setBounds(iX, iY, iSliderW, iSliderH);
     labels[8].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
     iX += iSliderW + iMargin;
 
-    parameters[9].setBounds(iX, iY, iSliderW, iSliderH);   // Mid Rate
+    parameters[9].setBounds(iX, iY, iSliderW, iSliderH);
     labels[9].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
     iX += iSliderW + iMargin;
 
-    parameters[10].setBounds(iX, iY, iSliderW, iSliderH);   // Treble Rate
+    parameters[10].setBounds(iX, iY, iSliderW, iSliderH);
     labels[10].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
 
-    // Row 3 (4 items) - Depths grouped
     iX = iMargin;
     iY += iSliderH + iLabelH + iMargin;
 
-    parameters[11].setBounds(iX, iY, iSliderW, iSliderH);  // Sub Depth
+    parameters[11].setBounds(iX, iY, iSliderW, iSliderH);
     labels[11].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
     iX += iSliderW + iMargin;
 
-    parameters[12].setBounds(iX, iY, iSliderW, iSliderH);  // Bass Depth
+    parameters[12].setBounds(iX, iY, iSliderW, iSliderH);
     labels[12].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
     iX += iSliderW + iMargin;
 
-    parameters[13].setBounds(iX, iY, iSliderW, iSliderH);  // Mid Depth
+    parameters[13].setBounds(iX, iY, iSliderW, iSliderH);
     labels[13].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
     iX += iSliderW + iMargin;
 
-    parameters[14].setBounds(iX, iY, iSliderW, iSliderH);  // Treble Depth
+    parameters[14].setBounds(iX, iY, iSliderW, iSliderH);
     labels[14].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
 
-    // Row 4 (5 items) - Rate Offset, Master Rate, Depth Offset, Phase Offset, Wet/Dry, Output
     iX = iMargin;
     iY += iSliderH + iLabelH + iMargin;
 
-    parameters[16].setBounds(iX, iY, iSliderW, iSliderH);  // Rate Offset
+    parameters[16].setBounds(iX, iY, iSliderW, iSliderH);
     labels[16].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
     iX += iSliderW + iMargin;
 
-    parameters[6].setBounds(iX, iY, iSliderW, iSliderH);   // Master Rate
+    parameters[6].setBounds(iX, iY, iSliderW, iSliderH);
     labels[6].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
     iX += iSliderW + iMargin;
 
-    parameters[17].setBounds(iX, iY, iSliderW, iSliderH);  // Depth Offset
+    parameters[17].setBounds(iX, iY, iSliderW, iSliderH);
     labels[17].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
     iX += iSliderW + iMargin;
 
-    parameters[15].setBounds(iX, iY, iSliderW, iSliderH);  // Phase Offset
+    parameters[15].setBounds(iX, iY, iSliderW, iSliderH);
     labels[15].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
     iX += iSliderW + iMargin;
 
-    parameters[19].setBounds(iX, iY, iSliderW, iSliderH);  // Wet
+    parameters[19].setBounds(iX, iY, iSliderW, iSliderH);
     labels[19].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
     iX += iSliderW + iMargin;
 
-    parameters[20].setBounds(iX, iY, iSliderW, iSliderH);  // Output Gain
+    parameters[20].setBounds(iX, iY, iSliderW, iSliderH);
     labels[20].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
 
-    //==============================================================================
-    // Right-side menus and controls
-    //==============================================================================
     const int iMenuW = iScaled(140, fUiScale);
     const int iMenuH = iScaled(25, fUiScale);
     const int iColGap = iScaled(10, fUiScale);
 
-    const int iMenuX = iScaled(622, fUiScale);  // Left column (presets, bypass, tremolo types)
+    const int iMenuX = iScaled(622, fUiScale);
     int iMenuY = iScaled(60, fUiScale);
 
     presetLabel.setBounds(iMenuX, iMenuY, iMenuW, iLabelH);
@@ -615,7 +569,6 @@ void AutoTremolandoAudioProcessorEditor::resized()
     bypassButton.setBounds(iMenuX, iMenuY + iLabelH, iMenuW, iMenuH);
     iMenuY += iLabelH + iMenuH + iScaled(5, fUiScale);
 
-    // Tremolo type menus - positioned after bypass with tighter spacing
     subTremLabel.setBounds(iMenuX, iMenuY, iMenuW, iLabelH);
     subTremMenu.setBounds(iMenuX, iMenuY + iLabelH, iMenuW, iMenuH);
     iMenuY += iLabelH + iMenuH + iScaled(8, fUiScale);
@@ -631,19 +584,15 @@ void AutoTremolandoAudioProcessorEditor::resized()
     trebleTremLabel.setBounds(iMenuX, iMenuY, iMenuW, iLabelH);
     trebleTremMenu.setBounds(iMenuX, iMenuY + iLabelH, iMenuW, iMenuH);
 
-    //==============================================================================
-    // Tempo sync controls - second column to the right, aligned with presets
-    //==============================================================================
     const int iTempoX = iMenuX + iMenuW + iColGap;
     int iTempoY = iScaled(60, fUiScale);
     const int iTempoColW = iScaled(130, fUiScale);
-    const int iSliderSize = iScaled(60, fUiScale);  // Rotary slider diameter
+    const int iSliderSize = iScaled(60, fUiScale);
 
     tempoSyncLabel.setBounds(iTempoX, iTempoY, iTempoColW, iLabelH);
     tempoSyncSlider.setBounds(iTempoX, iTempoY + iLabelH, iTempoColW, iMenuH);
     iTempoY += iLabelH + iMenuH + iScaled(16, fUiScale);
 
-    // Per-band note-division rotary sliders with value displays
     subNoteDivLabel.setBounds(iTempoX, iTempoY, iTempoColW, iLabelH);
     subNoteDivSlider.setBounds(iTempoX + (iTempoColW - iSliderSize) / 2, iTempoY + iLabelH, iSliderSize, iSliderSize);
     subNoteDivValueLabel.setBounds(iTempoX, iTempoY + iLabelH + iSliderSize, iTempoColW, iLabelH);
@@ -663,9 +612,6 @@ void AutoTremolandoAudioProcessorEditor::resized()
     trebleNoteDivSlider.setBounds(iTempoX + (iTempoColW - iSliderSize) / 2, iTempoY + iLabelH, iSliderSize, iSliderSize);
     trebleNoteDivValueLabel.setBounds(iTempoX, iTempoY + iLabelH + iSliderSize, iTempoColW, iLabelH);
 
-    //==============================================================================
-    // Extra controls - third column to the right of tempo sync
-    //==============================================================================
     const int iExtraX = iTempoX + iTempoColW + iColGap;
     int iExtraY = iScaled(60, fUiScale);
     const int iExtraColW = iScaled(140, fUiScale);
