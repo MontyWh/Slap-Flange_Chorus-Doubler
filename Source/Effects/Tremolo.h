@@ -1,9 +1,13 @@
 /*
   ==============================================================================
 
-    Tremolo.h
-    Created: 24 Jul 2026 6:04:07pm
-    Author:  User
+    Plugin: AutoTremolando
+    GitHub: MontyWh
+    Author: Montague Whishaw
+    Date/Time: 24th April 2026
+    General Language: English (UK)
+
+    This file contains the basic framework code for a custom JUCE component.
 
   ==============================================================================
 */
@@ -38,15 +42,7 @@ public:
            drawing code..
         */
 
-        g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));   // clear the background
-
-        g.setColour (juce::Colours::grey);
-        g.drawRect (getLocalBounds(), 1);   // draw an outline around the component
-
-        g.setColour (juce::Colours::white);
-        g.setFont (juce::FontOptions (14.0f));
-        g.drawText ("Tremolo", getLocalBounds(),
-                    juce::Justification::centred, true);   // draw some placeholder text
+        
     }
 
     void resized() override

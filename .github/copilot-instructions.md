@@ -13,6 +13,7 @@
 - Use industry-standard plugin control terminology for UI labels; avoid nonstandard wording.
 - Apply edits only to existing Projucer-managed files; do not create temporary/generated side files in the Source folder.
 - Project author attribution to use in file banners: Plugin: AutoTremolando, GitHub: MontyWh, Author: Montague Whishaw.
+- Prefer Projucer-generated template files to remain mostly intact (comments and standard methods), with logic added by filling existing functions where possible rather than introducing many new methods.
 
 ## Logic Placement
 - When moving logic to PluginExtra.h, only move DSP math/processing helpers there; keep UI-related logic and metadata out of PluginExtra.

@@ -5,6 +5,7 @@
     GitHub: MontyWh
     Author: Montague Whishaw
     Date/Time: 24th April 2026
+    General Language: English (UK)
 
     This file contains the basic framework code for a JUCE plugin processor.
 
@@ -14,6 +15,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "Effects/Modulation.h"
 #include <array>
 #include <atomic>
 #include <vector>
@@ -79,11 +81,10 @@ public:
     float getOutputMeterLevel() const;
 
 private:
-    static constexpr int iBandCount = 4;
-    static constexpr int iNoteDivisionCount = 15;
+    static constexpr int iBandCount = Modulation::iBandCount;
 
-    using BandFloatArray = std::array<float, iBandCount>;
-    using BandIntArray = std::array<int, iBandCount>;
+    using BandFloatArray = Modulation::BandFloatArray;
+    using BandIntArray = Modulation::BandIntArray;
 
     struct FilterCoefficients
     {
@@ -110,21 +111,9 @@ private:
 
     float fSampleRate = 0.0f;
 
-    BandFloatArray fRate { 5.0f, 5.0f, 5.0f, 5.0f };
-    BandFloatArray fDepth { 0.5f, 0.5f, 0.5f, 0.5f };
-
     std::vector<float> fPhaseOffset;
 
     std::vector<BandFloatArray> fPhasePos;
-    BandFloatArray fPhaseInc { 0.0f, 0.0f, 0.0f, 0.0f };
-
-    juce::LinearSmoothedValue<float> smoothedInputGain;
-    juce::LinearSmoothedValue<float> smoothedOutputGain;
-    juce::LinearSmoothedValue<float> smoothedWet;
-    juce::LinearSmoothedValue<float> smoothedPulseWidth;
-    juce::LinearSmoothedValue<float> smoothedBypass;
-    juce::LinearSmoothedValue<float> smoothedRate[iBandCount];
-    juce::LinearSmoothedValue<float> smoothedDepth[iBandCount];
 
     std::atomic<float> fTapTempoBpm { 120.0f };
     std::atomic<double> dLastTapTimeMs { 0.0 };

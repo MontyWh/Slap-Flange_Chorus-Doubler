@@ -5,6 +5,7 @@
     GitHub: MontyWh
     Author: Montague Whishaw
 	Date/Time: 24th April 2026
+	General Language: English (UK)
 	
 	This file contains the basic framework code for a JUCE plugin processor.
 
@@ -74,7 +75,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout AutoTremolandoAudioProcessor
     params.push_back(std::make_unique<juce::AudioParameterBool>("RETRIGGER_ON_PLAY", "Retrigger On Play", true));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("SURROUND_WIDTH",   "Surround Width", 0.0f, 1.0f, 1.0f));
 
-    juce::StringArray sDepthModes = { "Unipolar", "Bipolar" };
+	juce::StringArray sDepthModes = { "Unipolar", "Bipolar" };	// Unipolar represents a depth range of 0 to 1,
+																// while Bipolar represents a depth range of -1 to 1
     params.push_back(std::make_unique<juce::AudioParameterChoice>("DEPTH_MODE", "Depth Mode", sDepthModes, 0));
 
     params.push_back(std::make_unique<juce::AudioParameterBool>("BYPASS", "Bypass", false));
@@ -313,34 +315,11 @@ void AutoTremolandoAudioProcessor::prepareToPlay (double sampleRate, int samples
 		resonanceFilter.add(new Filter()); resonanceFilter[iChannel]->prepare(spec);
 	}
 
-	fPhaseOffset.assign(iNumOutputChannels, 0.0f);
-	fPhasePos.assign(static_cast<size_t>(iNumChannels), { 0.0f, 0.0f, 0.0f, 0.0f });
-
-	const float fStartPhaseDegrees = *apvts.getRawParameterValue("START_PHASE");
-	const float fStartPhaseRadians = juce::degreesToRadians(fStartPhaseDegrees);
-	for (auto& fChannelPhases : fPhasePos)
-		for (int iBand = 0; iBand < iBandCount; ++iBand)
-			fChannelPhases[static_cast<size_t>(iBand)] = fStartPhaseRadians;
-
-	smoothedInputGain.reset(sampleRate, 0.02);
-	smoothedOutputGain.reset(sampleRate, 0.02);
-	smoothedWet.reset(sampleRate, 0.02);
-	smoothedPulseWidth.reset(sampleRate, 0.02);
-	smoothedBypass.reset(sampleRate, 0.02);
-
-	smoothedInputGain.setCurrentAndTargetValue(0.5f);
-	smoothedOutputGain.setCurrentAndTargetValue(0.5f);
-	smoothedWet.setCurrentAndTargetValue(1.0f);
-	smoothedPulseWidth.setCurrentAndTargetValue(0.5f);
-	smoothedBypass.setCurrentAndTargetValue(0.0f);
-
-	for (int iBand = 0; iBand < iBandCount; ++iBand)
-	{
-		smoothedRate[iBand].reset(sampleRate, 0.02);
-		smoothedDepth[iBand].reset(sampleRate, 0.02);
-		smoothedRate[iBand].setCurrentAndTargetValue(5.0f);
-		smoothedDepth[iBand].setCurrentAndTargetValue(0.5f);
-	}
+	Modulation::initialisePhaseState(fPhaseOffset,
+		fPhasePos,
+		iNumChannels,
+		iNumOutputChannels,
+		*apvts.getRawParameterValue("START_PHASE"));
 
 	bWasPlaying = false;
 	fInputMeterLevel.store(0.0f);
@@ -390,23 +369,20 @@ void AutoTremolandoAudioProcessor::processAudioBlock(juce::AudioBuffer<SampleTyp
 	const float fSurroundWidth = juce::jlimit(0.0f, 1.0f, apvts.getRawParameterValue("SURROUND_WIDTH")->load());
 	const int iDepthMode = static_cast<int>(*apvts.getRawParameterValue("DEPTH_MODE"));
 
-	const float fInGainTarget = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
-	const float fOutGainTarget = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
-	const float fWetDryTarget = std::pow(*apvts.getRawParameterValue("WET"), 3.0f);
+	const float fInGain = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
+	const float fOutGain = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
+	const float fWetDryControl = std::pow(*apvts.getRawParameterValue("WET"), 3.0f);
 	const float fPresence = *apvts.getRawParameterValue("PRESENCE");
 	const float fPhaseOffsetDegrees = *apvts.getRawParameterValue("PHASE_OFFSET");
 	const float fStartPhaseDegrees = *apvts.getRawParameterValue("START_PHASE");
 	const float fRateOffset = *apvts.getRawParameterValue("RATE_OFFSET");
 	const float fDepthOffset = *apvts.getRawParameterValue("DEPTH_OFFSET");
-	const float fPulseWidthTarget = *apvts.getRawParameterValue("PULSE_WIDTH");
+	const float fPulseWidth = *apvts.getRawParameterValue("PULSE_WIDTH");
 	const float fMasterRate = *apvts.getRawParameterValue("MASTER_RATE");
+	const float fBypassMix = bBypass ? 1.0f : 0.0f;
 
-	smoothedInputGain.setTargetValue(fInGainTarget);
-	smoothedOutputGain.setTargetValue(fOutGainTarget);
-	smoothedWet.setTargetValue(fWetDryTarget);
-	smoothedPulseWidth.setTargetValue(fPulseWidthTarget);
-	smoothedBypass.setTargetValue(bBypass ? 1.0f : 0.0f);
-
+	BandFloatArray fRate {};
+	BandFloatArray fDepth {};
 	for (int iBand = 0; iBand < iBandCount; ++iBand)
 		fRate[static_cast<size_t>(iBand)] = *apvts.getRawParameterValue(getRateParamIds()[static_cast<size_t>(iBand)]);
 
@@ -423,31 +399,16 @@ void AutoTremolandoAudioProcessor::processAudioBlock(juce::AudioBuffer<SampleTyp
 	}
 
 	if (bTempoSync && bRetriggerOnPlay && bIsPlaying && !bWasPlaying)
-	{
-		const float fStartPhaseRadians = juce::degreesToRadians(fStartPhaseDegrees);
-		for (auto& fChannelPhases : fPhasePos)
-			for (int iBand = 0; iBand < iBandCount; ++iBand)
-				fChannelPhases[static_cast<size_t>(iBand)] = fStartPhaseRadians;
-	}
+		Modulation::retriggerPhases(fPhasePos, fStartPhaseDegrees);
 	bWasPlaying = bIsPlaying;
 
 	if (bTempoSync)
 	{
-		static constexpr float fTempoMultipliers[iNoteDivisionCount] = {
-			0.25f, 0.166667f, 0.375f,
-			0.5f, 0.333333f, 0.75f,
-			1.0f, 0.666667f, 1.5f,
-			2.0f, 1.333333f, 3.0f,
-			4.0f, 2.666667f, 6.0f
-		};
-
 		BandIntArray iDivIdx;
 		for (int iBand = 0; iBand < iBandCount; ++iBand)
-			iDivIdx[static_cast<size_t>(iBand)] = std::clamp(static_cast<int>(*apvts.getRawParameterValue(getNoteDivisionParamIds()[static_cast<size_t>(iBand)])), 0, iNoteDivisionCount - 1);
+			iDivIdx[static_cast<size_t>(iBand)] = static_cast<int>(*apvts.getRawParameterValue(getNoteDivisionParamIds()[static_cast<size_t>(iBand)]));
 
-		const float fBeatsPerSec = fSyncBpm / 60.0f;
-		for (int iBand = 0; iBand < iBandCount; ++iBand)
-			fRate[static_cast<size_t>(iBand)] = fBeatsPerSec * fTempoMultipliers[iDivIdx[static_cast<size_t>(iBand)]];
+		Modulation::applyTempoSync(fRate, iDivIdx, fSyncBpm);
 	}
 
 	for (int iBand = 0; iBand < iBandCount; ++iBand)
@@ -457,27 +418,12 @@ void AutoTremolandoAudioProcessor::processAudioBlock(juce::AudioBuffer<SampleTyp
 	}
 
 	if (bRateLock)
-		for (int iBand = 1; iBand < iBandCount; ++iBand)
-			fRate[static_cast<size_t>(iBand)] = fRate[0];
+		Modulation::applyRateLock(fRate);
 
-	for (int iBand = 0; iBand < iBandCount; ++iBand)
-	{
-		smoothedRate[iBand].setTargetValue(fRate[static_cast<size_t>(iBand)]);
-		smoothedDepth[iBand].setTargetValue(fDepth[static_cast<size_t>(iBand)]);
-	}
-
-	const float fPhaseOffsetRadians = juce::degreesToRadians(fPhaseOffsetDegrees);
-	if (fSurroundWidth <= 0.0f || iTotalNumInputChannels <= 1)
-	{
-		for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
-			fPhaseOffset[static_cast<size_t>(iChannel)] = 0.0f;
-	}
-	else
-	{
-		const float fMaxOffset = fPhaseOffsetRadians * fSurroundWidth;
-		for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
-			fPhaseOffset[static_cast<size_t>(iChannel)] = fMaxOffset * (static_cast<float>(iChannel) / static_cast<float>(iTotalNumInputChannels - 1));
-	}
+	Modulation::updatePhaseOffsets(fPhaseOffset,
+		iTotalNumInputChannels,
+		fPhaseOffsetDegrees,
+		fSurroundWidth);
 
 	FilterCoefficients coeffs;
 	const float fPresenceFreq = (fPresence * 19000.0f) + 1000.0f;
@@ -516,21 +462,12 @@ void AutoTremolandoAudioProcessor::processAudioBlock(juce::AudioBuffer<SampleTyp
 
 		for (int iSample = 0; iSample < iNumSamples; ++iSample)
 		{
-			const float fInGain = smoothedInputGain.getNextValue();
-			const float fOutGain = smoothedOutputGain.getNextValue();
-			const float fWetDryControl = smoothedWet.getNextValue();
-			const float fPulseWidth = smoothedPulseWidth.getNextValue();
-			const float fBypassMix = smoothedBypass.getNextValue();
-
 			BandFloatArray fChannelRate;
 			BandFloatArray fChannelDepth;
 			for (int iBand = 0; iBand < iBandCount; ++iBand)
 			{
-				const float fSmoothRate = smoothedRate[iBand].getNextValue();
-				const float fSmoothDepth = smoothedDepth[iBand].getNextValue();
-				fChannelRate[static_cast<size_t>(iBand)] = std::clamp(fSmoothRate + (fRateOffset * fChannelScale), 0.5f, 16.0f);
-				fChannelDepth[static_cast<size_t>(iBand)] = std::clamp(fSmoothDepth + (fDepthOffset * fChannelScale), 0.0f, 1.0f);
-				fPhaseInc[static_cast<size_t>(iBand)] = (fDoublePi * fChannelRate[static_cast<size_t>(iBand)]) / fSampleRate;
+				fChannelRate[static_cast<size_t>(iBand)] = std::clamp(fRate[static_cast<size_t>(iBand)] + (fRateOffset * fChannelScale), 0.5f, 16.0f);
+				fChannelDepth[static_cast<size_t>(iBand)] = std::clamp(fDepth[static_cast<size_t>(iBand)] + (fDepthOffset * fChannelScale), 0.0f, 1.0f);
 			}
 
 			const auto input = channelData[iSample];
@@ -546,29 +483,12 @@ void AutoTremolandoAudioProcessor::processAudioBlock(juce::AudioBuffer<SampleTyp
 
 			for (int iBand = 0; iBand < iBandCount; ++iBand)
 			{
-				fPhasePos[static_cast<size_t>(iChannel)][static_cast<size_t>(iBand)] += fPhaseInc[static_cast<size_t>(iBand)];
-				if (fPhasePos[static_cast<size_t>(iChannel)][static_cast<size_t>(iBand)] > fDoublePi)
-					fPhasePos[static_cast<size_t>(iChannel)][static_cast<size_t>(iBand)] -= fDoublePi;
+				const float fPhaseIncrement = (fDoublePi * fChannelRate[static_cast<size_t>(iBand)]) / fSampleRate;
+				fPhasePos[static_cast<size_t>(iChannel)][static_cast<size_t>(iBand)] = Modulation::wrapPhase(fPhasePos[static_cast<size_t>(iChannel)][static_cast<size_t>(iBand)] + fPhaseIncrement);
 
-				float fPhase = fPhasePos[static_cast<size_t>(iChannel)][static_cast<size_t>(iBand)] + fPhaseOffset[static_cast<size_t>(iChannel)];
-				while (fPhase > fDoublePi)
-					fPhase -= fDoublePi;
-
-				float fOsc = 0.0f;
-				if (iChoice[static_cast<size_t>(iBand)] == 0)
-					fOsc = std::sin(fPhase);
-				else if (iChoice[static_cast<size_t>(iBand)] == 1)
-					fOsc = (fPhase < juce::MathConstants<float>::pi) ? (-1.0f + ((2.0f / juce::MathConstants<float>::pi) * fPhase)) : (3.0f - ((2.0f / juce::MathConstants<float>::pi) * fPhase));
-				else if (iChoice[static_cast<size_t>(iBand)] == 2)
-					fOsc = (fPhase / juce::MathConstants<float>::pi) - 1.0f;
-				else if (iChoice[static_cast<size_t>(iBand)] == 3)
-					fOsc = (fPhase < fPulseWidth * fDoublePi) ? 1.0f : -1.0f;
-				else if (iChoice[static_cast<size_t>(iBand)] == 4)
-					fOsc = (fPhase < juce::MathConstants<float>::pi) ? 1.0f : -1.0f;
-
-				const float fTrem = (iDepthMode == 0)
-					? ((1.0f - fChannelDepth[static_cast<size_t>(iBand)]) + (fChannelDepth[static_cast<size_t>(iBand)] * ((fOsc + 1.0f) * 0.5f)))
-					: std::max(0.0f, 1.0f + (fOsc * fChannelDepth[static_cast<size_t>(iBand)]));
+				const float fPhase = Modulation::wrapPhase(fPhasePos[static_cast<size_t>(iChannel)][static_cast<size_t>(iBand)] + fPhaseOffset[static_cast<size_t>(iChannel)]);
+				const float fOsc = Modulation::getOscillatorValue(iChoice[static_cast<size_t>(iBand)], fPhase, fPulseWidth);
+				const float fTrem = Modulation::getTremoloGain(fOsc, fChannelDepth[static_cast<size_t>(iBand)], iDepthMode);
 				fBand[static_cast<size_t>(iBand)] *= fTrem;
 			}
 

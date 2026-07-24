@@ -5,6 +5,7 @@
     GitHub: MontyWh
     Author: Montague Whishaw
 	Date/Time: 24th April 2026
+    General Language: English (UK)
     
     This file contains the basic framework code for a JUCE plugin editor.
 
@@ -97,48 +98,35 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTrem
             audioProcessor.apvts, sParamIDs[i], parameters[i]);
     }
 
-    setupSlider(startPhaseSlider, fUiScale);
-    startPhaseSlider.setTextValueSuffix(" deg");
-    addAndMakeVisible(startPhaseSlider);
+    addAndMakeVisible(modulation);
 
-    startPhaseLabel.setText("Start Phase", juce::dontSendNotification);
-    startPhaseLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(startPhaseLabel);
-
-    startPhaseAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "START_PHASE", startPhaseSlider);
+    setupSlider(modulation.startPhaseSlider, fUiScale);
+    modulation.startPhaseSlider.setTextValueSuffix(" deg");
+    modulation.startPhaseLabel.setText("Start Phase", juce::dontSendNotification);
+    modulation.startPhaseLabel.setJustificationType(juce::Justification::centred);
+    startPhaseAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "START_PHASE", modulation.startPhaseSlider);
 
     juce::ComboBox* menus[4] =
     {
-        &subTremMenu, &bassTremMenu, &midTremMenu, &trebleTremMenu
+        &modulation.subTremMenu, &modulation.bassTremMenu, &modulation.midTremMenu, &modulation.trebleTremMenu
     };
     const juce::StringArray sWaveNames{ "Sine", "Triangle", "Sawtooth", "Pulse", "Square" };
     for (auto* m : menus) m->addItemList(sWaveNames, 1);
 
+    modulation.subTremLabel.setText("Sub Type", juce::dontSendNotification);
+    modulation.bassTremLabel.setText("Bass Type", juce::dontSendNotification);
+    modulation.midTremLabel.setText("Mid Type", juce::dontSendNotification);
+    modulation.trebleTremLabel.setText("Treble Type", juce::dontSendNotification);
 
-    addAndMakeVisible(subTremMenu);
-    addAndMakeVisible(bassTremMenu);
-    addAndMakeVisible(midTremMenu);
-    addAndMakeVisible(trebleTremMenu);
+    modulation.subTremLabel.setJustificationType(juce::Justification::centred);
+    modulation.bassTremLabel.setJustificationType(juce::Justification::centred);
+    modulation.midTremLabel.setJustificationType(juce::Justification::centred);
+    modulation.trebleTremLabel.setJustificationType(juce::Justification::centred);
 
-    subTremLabel.setText("Sub Type", juce::dontSendNotification);
-    bassTremLabel.setText("Bass Type", juce::dontSendNotification);
-    midTremLabel.setText("Mid Type", juce::dontSendNotification);
-    trebleTremLabel.setText("Treble Type", juce::dontSendNotification);
-
-    subTremLabel.setJustificationType(juce::Justification::centred);
-    bassTremLabel.setJustificationType(juce::Justification::centred);
-    midTremLabel.setJustificationType(juce::Justification::centred);
-    trebleTremLabel.setJustificationType(juce::Justification::centred);
-
-    addAndMakeVisible(subTremLabel);
-    addAndMakeVisible(bassTremLabel);
-    addAndMakeVisible(midTremLabel);
-    addAndMakeVisible(trebleTremLabel);
-
-    subTremAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "SUB_TREMOLO", subTremMenu);
-    bassTremAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "BASS_TREMOLO", bassTremMenu);
-    midTremAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "MID_TREMOLO", midTremMenu);
-    trebleTremAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "TREBLE_TREMOLO", trebleTremMenu);
+    subTremAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "SUB_TREMOLO", modulation.subTremMenu);
+    bassTremAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "BASS_TREMOLO", modulation.bassTremMenu);
+    midTremAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "MID_TREMOLO", modulation.midTremMenu);
+    trebleTremAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "TREBLE_TREMOLO", modulation.trebleTremMenu);
 
     presetLabel.setText("Presets", juce::dontSendNotification);
     presetLabel.setJustificationType(juce::Justification::centred);
@@ -185,60 +173,49 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTrem
             bypassButton.setButtonText(bNewBypass ? "ON" : "OFF");
         };
 
-    tempoSyncLabel.setText("Sync Mode", juce::dontSendNotification);
-    tempoSyncLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(tempoSyncLabel);
+    modulation.tempoSyncLabel.setText("Sync Mode", juce::dontSendNotification);
+    modulation.tempoSyncLabel.setJustificationType(juce::Justification::centred);
 
-    tempoSyncSlider.setButtonText("TIME");
-    addAndMakeVisible(tempoSyncSlider);
+    modulation.tempoSyncSlider.setButtonText("TIME");
 
+    modulation.rateLockLabel.setText("Rate Lock", juce::dontSendNotification);
+    modulation.rateLockLabel.setJustificationType(juce::Justification::centred);
 
-    rateLockLabel.setText("Rate Lock", juce::dontSendNotification);
-    rateLockLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(rateLockLabel);
+    modulation.rateLockButton.setClickingTogglesState(true);
+    rateLockAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(audioProcessor.apvts, "RATE_LOCK", modulation.rateLockButton);
+    modulation.rateLockButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::darkcyan);
+    modulation.rateLockButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+    modulation.rateLockButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    modulation.rateLockButton.setTooltip("Links Bass, Mid and Treble to the Sub rate or division");
+    modulation.rateLockButton.setButtonText(modulation.rateLockButton.getToggleState() ? "Linked" : "Unlinked");
 
-    rateLockButton.setClickingTogglesState(true);
-    addAndMakeVisible(rateLockButton);
-    rateLockAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(audioProcessor.apvts, "RATE_LOCK", rateLockButton);
-    rateLockButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::darkcyan);
-    rateLockButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
-    rateLockButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-    rateLockButton.setTooltip("Links Bass, Mid and Treble to the Sub rate or division");
-    rateLockButton.setButtonText(rateLockButton.getToggleState() ? "Linked" : "Unlinked");
+    modulation.retriggerLabel.setText("Retrigger", juce::dontSendNotification);
+    modulation.retriggerLabel.setJustificationType(juce::Justification::centred);
 
-    retriggerLabel.setText("Retrigger", juce::dontSendNotification);
-    retriggerLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(retriggerLabel);
+    modulation.retriggerButton.setClickingTogglesState(true);
+    modulation.retriggerButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::darkcyan);
+    modulation.retriggerButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkslategrey);
+    modulation.retriggerButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+    modulation.retriggerButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    modulation.retriggerButton.setTooltip("When enabled, tremolo restarts from Start Phase each time playback starts");
+    retriggerAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(audioProcessor.apvts, "RETRIGGER_ON_PLAY", modulation.retriggerButton);
 
-    retriggerButton.setClickingTogglesState(true);
-    retriggerButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::darkcyan);
-    retriggerButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkslategrey);
-    retriggerButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
-    retriggerButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-    retriggerButton.setTooltip("When enabled, tremolo restarts from Start Phase each time playback starts");
-    addAndMakeVisible(retriggerButton);
-    retriggerAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(audioProcessor.apvts, "RETRIGGER_ON_PLAY", retriggerButton);
+    modulation.rateLockButton.setToggleState(*audioProcessor.apvts.getRawParameterValue("RATE_LOCK") > 0.5f, juce::dontSendNotification);
+    modulation.retriggerButton.setToggleState(*audioProcessor.apvts.getRawParameterValue("RETRIGGER_ON_PLAY") > 0.5f, juce::dontSendNotification);
+    modulation.retriggerButton.setButtonText(modulation.retriggerButton.getToggleState() ? "Retrig" : "Free");
 
-    rateLockButton.setToggleState(*audioProcessor.apvts.getRawParameterValue("RATE_LOCK") > 0.5f, juce::dontSendNotification);
-    retriggerButton.setToggleState(*audioProcessor.apvts.getRawParameterValue("RETRIGGER_ON_PLAY") > 0.5f, juce::dontSendNotification);
-    retriggerButton.setButtonText(retriggerButton.getToggleState() ? "Retrig" : "Free");
+    modulation.surroundWidthLabel.setText("Surround Width", juce::dontSendNotification);
+    modulation.surroundWidthLabel.setJustificationType(juce::Justification::centred);
 
-    surroundWidthLabel.setText("Surround Width", juce::dontSendNotification);
-    surroundWidthLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(surroundWidthLabel);
+    setupSlider(modulation.surroundWidthSlider, fUiScale);
+    modulation.surroundWidthSlider.setTextValueSuffix(" %");
+    surroundWidthAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "SURROUND_WIDTH", modulation.surroundWidthSlider);
 
-    setupSlider(surroundWidthSlider, fUiScale);
-    surroundWidthSlider.setTextValueSuffix(" %");
-    addAndMakeVisible(surroundWidthSlider);
-    surroundWidthAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "SURROUND_WIDTH", surroundWidthSlider);
+    modulation.depthModeLabel.setText("Depth Mode", juce::dontSendNotification);
+    modulation.depthModeLabel.setJustificationType(juce::Justification::centred);
 
-    depthModeLabel.setText("Depth Mode", juce::dontSendNotification);
-    depthModeLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(depthModeLabel);
-
-    depthModeMenu.addItemList({ "Unipolar", "Bipolar" }, 1);
-    addAndMakeVisible(depthModeMenu);
-    depthModeAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "DEPTH_MODE", depthModeMenu);
+    modulation.depthModeMenu.addItemList({ "Unipolar", "Bipolar" }, 1);
+    depthModeAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "DEPTH_MODE", modulation.depthModeMenu);
 
     inputMeterLabel.setText("Input", juce::dontSendNotification);
     inputMeterLabel.setJustificationType(juce::Justification::centred);
@@ -252,30 +229,26 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTrem
 
     startTimerHz(30);
 
-    auto setupDivisionSlider = [this](juce::Slider& slider, juce::Label& label, juce::Label& valueLabel, const juce::String& paramID)
+    auto setupDivisionSlider = [](juce::Slider& slider, juce::Label& label, juce::Label& valueLabel)
         {
             slider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
             slider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
             slider.setRange(0.0, 14.0, 1.0);
             slider.setColour(juce::Slider::rotarySliderFillColourId, juce::Colours::cyan);
-            addAndMakeVisible(slider);
 
             label.setJustificationType(juce::Justification::centred);
-            addAndMakeVisible(label);
-
             valueLabel.setJustificationType(juce::Justification::centred);
-            addAndMakeVisible(valueLabel);
         };
 
-    setupDivisionSlider(subNoteDivSlider, subNoteDivLabel, subNoteDivValueLabel, "SUB_NOTE_DIV");
-    setupDivisionSlider(bassNoteDivSlider, bassNoteDivLabel, bassNoteDivValueLabel, "BASS_NOTE_DIV");
-    setupDivisionSlider(midNoteDivSlider, midNoteDivLabel, midNoteDivValueLabel, "MID_NOTE_DIV");
-    setupDivisionSlider(trebleNoteDivSlider, trebleNoteDivLabel, trebleNoteDivValueLabel, "TREBLE_NOTE_DIV");
+    setupDivisionSlider(modulation.subNoteDivSlider, modulation.subNoteDivLabel, modulation.subNoteDivValueLabel);
+    setupDivisionSlider(modulation.bassNoteDivSlider, modulation.bassNoteDivLabel, modulation.bassNoteDivValueLabel);
+    setupDivisionSlider(modulation.midNoteDivSlider, modulation.midNoteDivLabel, modulation.midNoteDivValueLabel);
+    setupDivisionSlider(modulation.trebleNoteDivSlider, modulation.trebleNoteDivLabel, modulation.trebleNoteDivValueLabel);
 
-    subNoteDivAttach    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "SUB_NOTE_DIV",    subNoteDivSlider);
-    bassNoteDivAttach   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "BASS_NOTE_DIV",   bassNoteDivSlider);
-    midNoteDivAttach    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "MID_NOTE_DIV",    midNoteDivSlider);
-    trebleNoteDivAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "TREBLE_NOTE_DIV", trebleNoteDivSlider);
+    subNoteDivAttach    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "SUB_NOTE_DIV",    modulation.subNoteDivSlider);
+    bassNoteDivAttach   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "BASS_NOTE_DIV",   modulation.bassNoteDivSlider);
+    midNoteDivAttach    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "MID_NOTE_DIV",    modulation.midNoteDivSlider);
+    trebleNoteDivAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "TREBLE_NOTE_DIV", modulation.trebleNoteDivSlider);
 
     auto updateDivisionLabels = [this]()
         {
@@ -300,15 +273,15 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTrem
                     }
                 };
 
-            updateLabel(subNoteDivSlider, subNoteDivValueLabel);
-            updateLabel(bassNoteDivSlider, bassNoteDivValueLabel);
-            updateLabel(midNoteDivSlider, midNoteDivValueLabel);
-            updateLabel(trebleNoteDivSlider, trebleNoteDivValueLabel);
+            updateLabel(modulation.subNoteDivSlider, modulation.subNoteDivValueLabel);
+            updateLabel(modulation.bassNoteDivSlider, modulation.bassNoteDivValueLabel);
+            updateLabel(modulation.midNoteDivSlider, modulation.midNoteDivValueLabel);
+            updateLabel(modulation.trebleNoteDivSlider, modulation.trebleNoteDivValueLabel);
         };
 
     auto syncLinkedRateControls = [this]()
         {
-            if (bUpdatingLinkedRates || !rateLockButton.getToggleState())
+            if (bUpdatingLinkedRates || !modulation.rateLockButton.getToggleState())
                 return;
 
             const juce::ScopedValueSetter<bool> updatingLinkedRates(bUpdatingLinkedRates, true);
@@ -321,34 +294,34 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTrem
 
     auto syncLinkedTimeControls = [this]()
         {
-            if (bUpdatingLinkedRates || !rateLockButton.getToggleState())
+            if (bUpdatingLinkedRates || !modulation.rateLockButton.getToggleState())
                 return;
 
             const juce::ScopedValueSetter<bool> updatingLinkedRates(bUpdatingLinkedRates, true);
-            const double dSubDivision = subNoteDivSlider.getValue();
+            const double dSubDivision = modulation.subNoteDivSlider.getValue();
 
-            bassNoteDivSlider.setValue(dSubDivision, juce::sendNotificationSync);
-            midNoteDivSlider.setValue(dSubDivision, juce::sendNotificationSync);
-            trebleNoteDivSlider.setValue(dSubDivision, juce::sendNotificationSync);
+            modulation.bassNoteDivSlider.setValue(dSubDivision, juce::sendNotificationSync);
+            modulation.midNoteDivSlider.setValue(dSubDivision, juce::sendNotificationSync);
+            modulation.trebleNoteDivSlider.setValue(dSubDivision, juce::sendNotificationSync);
         };
 
     auto updateSyncModeUi = [this, updateDivisionLabels]()
         {
-            tempoSyncSlider.setButtonText(bCurrentSync ? "TEMPO" : "TIME");
+            modulation.tempoSyncSlider.setButtonText(bCurrentSync ? "TEMPO" : "TIME");
 
             if (bCurrentSync)
             {
-                subNoteDivLabel.setText("Sub Div", juce::dontSendNotification);
-                bassNoteDivLabel.setText("Bass Div", juce::dontSendNotification);
-                midNoteDivLabel.setText("Mid Div", juce::dontSendNotification);
-                trebleNoteDivLabel.setText("Treble Div", juce::dontSendNotification);
+                modulation.subNoteDivLabel.setText("Sub Div", juce::dontSendNotification);
+                modulation.bassNoteDivLabel.setText("Bass Div", juce::dontSendNotification);
+                modulation.midNoteDivLabel.setText("Mid Div", juce::dontSendNotification);
+                modulation.trebleNoteDivLabel.setText("Treble Div", juce::dontSendNotification);
             }
             else
             {
-                subNoteDivLabel.setText("Sub Time", juce::dontSendNotification);
-                bassNoteDivLabel.setText("Bass Time", juce::dontSendNotification);
-                midNoteDivLabel.setText("Mid Time", juce::dontSendNotification);
-                trebleNoteDivLabel.setText("Treble Time", juce::dontSendNotification);
+                modulation.subNoteDivLabel.setText("Sub Time", juce::dontSendNotification);
+                modulation.bassNoteDivLabel.setText("Bass Time", juce::dontSendNotification);
+                modulation.midNoteDivLabel.setText("Mid Time", juce::dontSendNotification);
+                modulation.trebleNoteDivLabel.setText("Treble Time", juce::dontSendNotification);
             }
 
             updateDivisionLabels();
@@ -371,30 +344,30 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTrem
                 };
         };
 
-    makeDivisionSliderListener(subNoteDivSlider);
-    makeDivisionSliderListener(bassNoteDivSlider);
-    makeDivisionSliderListener(midNoteDivSlider);
-    makeDivisionSliderListener(trebleNoteDivSlider);
+    makeDivisionSliderListener(modulation.subNoteDivSlider);
+    makeDivisionSliderListener(modulation.bassNoteDivSlider);
+    makeDivisionSliderListener(modulation.midNoteDivSlider);
+    makeDivisionSliderListener(modulation.trebleNoteDivSlider);
 
     makeRateSliderListener(parameters[7]);
     makeRateSliderListener(parameters[8]);
     makeRateSliderListener(parameters[9]);
     makeRateSliderListener(parameters[10]);
 
-    rateLockButton.onStateChange = [this, syncLinkedRateControls, syncLinkedTimeControls, updateDivisionLabels]()
+    modulation.rateLockButton.onStateChange = [this, syncLinkedRateControls, syncLinkedTimeControls, updateDivisionLabels]()
         {
-            rateLockButton.setButtonText(rateLockButton.getToggleState() ? "Linked" : "Unlinked");
+            modulation.rateLockButton.setButtonText(modulation.rateLockButton.getToggleState() ? "Linked" : "Unlinked");
             syncLinkedRateControls();
             syncLinkedTimeControls();
             updateDivisionLabels();
         };
 
-    retriggerButton.onStateChange = [this]()
+    modulation.retriggerButton.onStateChange = [this]()
         {
-            retriggerButton.setButtonText(retriggerButton.getToggleState() ? "Retrig" : "Free");
+            modulation.retriggerButton.setButtonText(modulation.retriggerButton.getToggleState() ? "Retrig" : "Free");
         };
 
-    tempoSyncSlider.onClick = [this, updateSyncModeUi]()
+    modulation.tempoSyncSlider.onClick = [this, updateSyncModeUi]()
         {
             bool bCurrentSyncState = *audioProcessor.apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
             bool bNewSync = !bCurrentSyncState;
@@ -430,10 +403,10 @@ void AutoTremolandoAudioProcessorEditor::updateChannelSpreadUiState()
         labels[i].setAlpha(fChannelSpreadAlpha);
     }
 
-    surroundWidthSlider.setEnabled(bEnableChannelSpread);
-    surroundWidthLabel.setEnabled(bEnableChannelSpread);
-    surroundWidthSlider.setAlpha(fChannelSpreadAlpha);
-    surroundWidthLabel.setAlpha(fChannelSpreadAlpha);
+    modulation.surroundWidthSlider.setEnabled(bEnableChannelSpread);
+    modulation.surroundWidthLabel.setEnabled(bEnableChannelSpread);
+    modulation.surroundWidthSlider.setAlpha(fChannelSpreadAlpha);
+    modulation.surroundWidthLabel.setAlpha(fChannelSpreadAlpha);
 }
 
 void AutoTremolandoAudioProcessorEditor::timerCallback()
@@ -481,10 +454,6 @@ void AutoTremolandoAudioProcessorEditor::resized()
 
     parameters[18].setBounds(iX, iY, iSliderW, iSliderH);
     labels[18].setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
-    iX += iSliderW + iMargin;
-
-    startPhaseSlider.setBounds(iX, iY, iSliderW, iSliderH);
-    startPhaseLabel.setBounds(iX, iY + iSliderH, iSliderW, iLabelH);
 
     iX = iMargin;
     iY += iSliderH + iLabelH + iMargin;
@@ -550,7 +519,6 @@ void AutoTremolandoAudioProcessorEditor::resized()
 
     const int iMenuW = iScaled(140, fUiScale);
     const int iMenuH = iScaled(25, fUiScale);
-    const int iColGap = iScaled(10, fUiScale);
 
     const int iMenuX = iScaled(622, fUiScale);
     int iMenuY = iScaled(60, fUiScale);
@@ -567,75 +535,21 @@ void AutoTremolandoAudioProcessorEditor::resized()
 
     bypassLabel.setBounds(iMenuX, iMenuY, iMenuW, iLabelH);
     bypassButton.setBounds(iMenuX, iMenuY + iLabelH, iMenuW, iMenuH);
-    iMenuY += iLabelH + iMenuH + iScaled(5, fUiScale);
 
-    subTremLabel.setBounds(iMenuX, iMenuY, iMenuW, iLabelH);
-    subTremMenu.setBounds(iMenuX, iMenuY + iLabelH, iMenuW, iMenuH);
-    iMenuY += iLabelH + iMenuH + iScaled(8, fUiScale);
+    const int iModulationX = iMenuX + iMenuW + iScaled(10, fUiScale);
+    const int iModulationY = iScaled(60, fUiScale);
+    const int iModulationW = getWidth() - iModulationX - iMargin;
+    const int iModulationH = getHeight() - iModulationY - iMargin;
+    modulation.setBounds(iModulationX, iModulationY, juce::jmax(iScaled(420, fUiScale), iModulationW), iModulationH);
 
-    bassTremLabel.setBounds(iMenuX, iMenuY, iMenuW, iLabelH);
-    bassTremMenu.setBounds(iMenuX, iMenuY + iLabelH, iMenuW, iMenuH);
-    iMenuY += iLabelH + iMenuH + iScaled(8, fUiScale);
+    const int iMeterW = iScaled(140, fUiScale);
+    const int iMeterX = iModulationX + modulation.getWidth() - iMeterW;
+    int iMeterY = iModulationY + iScaled(260, fUiScale);
 
-    midTremLabel.setBounds(iMenuX, iMenuY, iMenuW, iLabelH);
-    midTremMenu.setBounds(iMenuX, iMenuY + iLabelH, iMenuW, iMenuH);
-    iMenuY += iLabelH + iMenuH + iScaled(8, fUiScale);
+    inputMeterLabel.setBounds(iMeterX, iMeterY, iMeterW, iLabelH);
+    inputMeterBar.setBounds(iMeterX, iMeterY + iLabelH, iMeterW, iScaled(14, fUiScale));
+    iMeterY += iLabelH + iScaled(20, fUiScale);
 
-    trebleTremLabel.setBounds(iMenuX, iMenuY, iMenuW, iLabelH);
-    trebleTremMenu.setBounds(iMenuX, iMenuY + iLabelH, iMenuW, iMenuH);
-
-    const int iTempoX = iMenuX + iMenuW + iColGap;
-    int iTempoY = iScaled(60, fUiScale);
-    const int iTempoColW = iScaled(130, fUiScale);
-    const int iSliderSize = iScaled(60, fUiScale);
-
-    tempoSyncLabel.setBounds(iTempoX, iTempoY, iTempoColW, iLabelH);
-    tempoSyncSlider.setBounds(iTempoX, iTempoY + iLabelH, iTempoColW, iMenuH);
-    iTempoY += iLabelH + iMenuH + iScaled(16, fUiScale);
-
-    subNoteDivLabel.setBounds(iTempoX, iTempoY, iTempoColW, iLabelH);
-    subNoteDivSlider.setBounds(iTempoX + (iTempoColW - iSliderSize) / 2, iTempoY + iLabelH, iSliderSize, iSliderSize);
-    subNoteDivValueLabel.setBounds(iTempoX, iTempoY + iLabelH + iSliderSize, iTempoColW, iLabelH);
-    iTempoY += iLabelH + iSliderSize + iLabelH + iScaled(16, fUiScale);
-
-    bassNoteDivLabel.setBounds(iTempoX, iTempoY, iTempoColW, iLabelH);
-    bassNoteDivSlider.setBounds(iTempoX + (iTempoColW - iSliderSize) / 2, iTempoY + iLabelH, iSliderSize, iSliderSize);
-    bassNoteDivValueLabel.setBounds(iTempoX, iTempoY + iLabelH + iSliderSize, iTempoColW, iLabelH);
-    iTempoY += iLabelH + iSliderSize + iLabelH + iScaled(16, fUiScale);
-
-    midNoteDivLabel.setBounds(iTempoX, iTempoY, iTempoColW, iLabelH);
-    midNoteDivSlider.setBounds(iTempoX + (iTempoColW - iSliderSize) / 2, iTempoY + iLabelH, iSliderSize, iSliderSize);
-    midNoteDivValueLabel.setBounds(iTempoX, iTempoY + iLabelH + iSliderSize, iTempoColW, iLabelH);
-    iTempoY += iLabelH + iSliderSize + iLabelH + iScaled(16, fUiScale);
-
-    trebleNoteDivLabel.setBounds(iTempoX, iTempoY, iTempoColW, iLabelH);
-    trebleNoteDivSlider.setBounds(iTempoX + (iTempoColW - iSliderSize) / 2, iTempoY + iLabelH, iSliderSize, iSliderSize);
-    trebleNoteDivValueLabel.setBounds(iTempoX, iTempoY + iLabelH + iSliderSize, iTempoColW, iLabelH);
-
-    const int iExtraX = iTempoX + iTempoColW + iColGap;
-    int iExtraY = iScaled(60, fUiScale);
-    const int iExtraColW = iScaled(140, fUiScale);
-
-    rateLockLabel.setBounds(iExtraX, iExtraY, iExtraColW, iLabelH);
-    rateLockButton.setBounds(iExtraX, iExtraY + iLabelH, iExtraColW, iMenuH);
-    iExtraY += iLabelH + iMenuH + iScaled(8, fUiScale);
-
-    retriggerLabel.setBounds(iExtraX, iExtraY, iExtraColW, iLabelH);
-    retriggerButton.setBounds(iExtraX, iExtraY + iLabelH, iExtraColW, iMenuH);
-    iExtraY += iLabelH + iMenuH + iScaled(8, fUiScale);
-
-    surroundWidthLabel.setBounds(iExtraX, iExtraY, iExtraColW, iLabelH);
-    surroundWidthSlider.setBounds(iExtraX, iExtraY + iLabelH, iExtraColW, iSliderH);
-    iExtraY += iLabelH + iSliderH + iScaled(8, fUiScale);
-
-    depthModeLabel.setBounds(iExtraX, iExtraY, iExtraColW, iLabelH);
-    depthModeMenu.setBounds(iExtraX, iExtraY + iLabelH, iExtraColW, iMenuH);
-    iExtraY += iLabelH + iMenuH + iScaled(12, fUiScale);
-
-    inputMeterLabel.setBounds(iExtraX, iExtraY, iExtraColW, iLabelH);
-    inputMeterBar.setBounds(iExtraX, iExtraY + iLabelH, iExtraColW, iScaled(14, fUiScale));
-    iExtraY += iLabelH + iScaled(20, fUiScale);
-
-    outputMeterLabel.setBounds(iExtraX, iExtraY, iExtraColW, iLabelH);
-    outputMeterBar.setBounds(iExtraX, iExtraY + iLabelH, iExtraColW, iScaled(14, fUiScale));
+    outputMeterLabel.setBounds(iMeterX, iMeterY, iMeterW, iLabelH);
+    outputMeterBar.setBounds(iMeterX, iMeterY + iLabelH, iMeterW, iScaled(14, fUiScale));
 }
