@@ -51,8 +51,8 @@ static void setupSlider(juce::Slider& s, const float uiScale)
 //==============================================================================
 AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTremolandoAudioProcessor& p)
     : AudioProcessorEditor (&p),
-      inputMeterBar (dInputMeterDisplay),
-      outputMeterBar (dOutputMeterDisplay),
+      inputMeterBar (dInputMeterBarValue),
+      outputMeterBar (dOutputMeterBarValue),
       audioProcessor (p)
 {
     // Make sure that before the constructor has finished, you've set the
@@ -99,7 +99,7 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTrem
     }
 
     addAndMakeVisible(modulation);
-    modulation.initialiseModulationControls(audioProcessor.apvts, fUiScale);
+    modulation.initialiseControls(audioProcessor.apvts, fUiScale);
 
     presetLabel.setText("Presets", juce::dontSendNotification);
     presetLabel.setJustificationType(juce::Justification::centred);
@@ -215,7 +215,7 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTrem
 
     auto updateSyncModeUi = [this, updateDivisionLabels]()
         {
-            modulation.tempoSyncSlider.setButtonText(bCurrentSync ? "TEMPO" : "TIME");
+            modulation.tempoSyncButton.setButtonText(bCurrentSync ? "TEMPO" : "TIME");
 
             if (bCurrentSync)
             {
@@ -275,7 +275,7 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTrem
             modulation.retriggerButton.setButtonText(modulation.retriggerButton.getToggleState() ? "Retrig" : "Free");
         };
 
-    modulation.tempoSyncSlider.onClick = [this, updateSyncModeUi]()
+    modulation.tempoSyncButton.onClick = [this, updateSyncModeUi]()
         {
             bool bCurrentSyncState = *audioProcessor.apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
             bool bNewSync = !bCurrentSyncState;
@@ -320,8 +320,10 @@ void AutoTremolandoAudioProcessorEditor::updateChannelSpreadUiState()
 void AutoTremolandoAudioProcessorEditor::timerCallback()
 {
     updateChannelSpreadUiState();
-    dInputMeterDisplay = juce::jlimit(0.0, 1.0, static_cast<double>(audioProcessor.fInputMeterLevel.load()));
-    dOutputMeterDisplay = juce::jlimit(0.0, 1.0, static_cast<double>(audioProcessor.fOutputMeterLevel.load()));
+    fInputMeterDisplay = juce::jlimit(0.0f, 1.0f, audioProcessor.fInputMeterLevel.load());
+    fOutputMeterDisplay = juce::jlimit(0.0f, 1.0f, audioProcessor.fOutputMeterLevel.load());
+    dInputMeterBarValue = static_cast<double>(fInputMeterDisplay);
+    dOutputMeterBarValue = static_cast<double>(fOutputMeterDisplay);
     repaint();
 }
 

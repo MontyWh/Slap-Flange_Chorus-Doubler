@@ -18,6 +18,14 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
+// JUCE type aliases
+using Slider = juce::Slider;
+using Label = juce::Label;
+using TextButton = juce::TextButton;
+using ComboBox = juce::ComboBox;
+using ProgressBar = juce::ProgressBar;
+using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
+
 const int iNumParameters = 22;
 
 class AutoTremolandoAudioProcessorEditor  : public juce::AudioProcessorEditor, private juce::Timer
@@ -34,36 +42,31 @@ public:
 private:
     void updateChannelSpreadUiState();
 
-    juce::Slider parameters[iNumParameters];
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> paramAttach[iNumParameters];
-    juce::Label labels[iNumParameters];
+    Slider parameters[iNumParameters];
+    std::unique_ptr<SliderAttachment> paramAttach[iNumParameters];
+    Label labels[iNumParameters];
 
     Modulation modulation;
 
-    using MenuAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
+    ComboBox presetMenu;
+    Label presetLabel;
 
-    juce::ComboBox presetMenu;
-    juce::Label presetLabel;
+    TextButton tapTempoButton;
+    TextButton resetDefaultsButton;
 
-    juce::TextButton tapTempoButton;
-    juce::TextButton resetDefaultsButton;
-
-    juce::TextButton bypassButton;
-    juce::Label bypassLabel;
+    TextButton bypassButton;
+    Label bypassLabel;
 
     bool bCurrentSync = true;
     bool bUpdatingLinkedRates = false;
 
-    double dInputMeterDisplay = 0.0;
-    double dOutputMeterDisplay = 0.0;
-    juce::ProgressBar inputMeterBar;
-    juce::ProgressBar outputMeterBar;
-    juce::Label inputMeterLabel, outputMeterLabel;
-
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
-        subNoteDivAttach, bassNoteDivAttach, midNoteDivAttach, trebleNoteDivAttach;
-
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> startPhaseAttach;
+    float fInputMeterDisplay = 0.0f;
+    float fOutputMeterDisplay = 0.0f;
+    double dInputMeterBarValue = 0.0;
+    double dOutputMeterBarValue = 0.0;
+    ProgressBar inputMeterBar;
+    ProgressBar outputMeterBar;
+    Label inputMeterLabel, outputMeterLabel;
 
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.

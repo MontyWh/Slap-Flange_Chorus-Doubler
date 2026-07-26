@@ -15,9 +15,12 @@
 - Project author attribution to use in file banners: Plugin: AutoTremolando, GitHub: MontyWh, Author: Montague Whishaw.
 - Prefer Projucer-generated template files to remain mostly intact (comments and standard methods), with logic added by filling existing functions where possible rather than introducing many new methods.
 - Remove disused helper functions after merging into the Projucer float processBlock template style.
+- Use the input channel count variable for input-linked logic and the output channel count variable for output-linked logic.
+- Prefer to spell out complex JUCE types using 'using' aliases (e.g., 'using IIRFilter = juce::dsp::IIR::Filter<float>') rather than using fully-qualified names inline. This helps make JUCE library dependencies explicit and visible throughout the codebase.
 
 ## Logic Placement
 - When moving logic to PluginExtra.h, only move DSP math/processing helpers there; keep UI-related logic and metadata out of PluginExtra.
+- Keep Tremolo.h for equations-only maths helpers, while orchestration/control-flow logic remains in Modulation.h.
 - Encapsulate smoothing logic in Source/PluginExtra.h and invoke it from other files while preserving existing behaviour and code format.
 - Use grouped section header comments above logical code groups (not function/class-level header comments), while keeping key right-side inline comments for important DSP lines.
 - Comment headers must use a three-line separator format (//======================================================================, // <section title>, //======================================================================), and all comments must use UK spelling.

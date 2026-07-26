@@ -82,9 +82,6 @@ public:
 private:
     static constexpr int iBandCount = Modulation::iBandCount;
 
-    using BandFloatArray = Modulation::BandFloatArray;
-    using BandIntArray = Modulation::BandIntArray;
-
     struct FilterCoefficients
     {
         juce::dsp::IIR::Coefficients<float>::Ptr resonance;
@@ -107,18 +104,13 @@ private:
 
     float fSampleRate = 0.0f;
 
-    std::vector<float> fPhaseOffset;
-
-    std::vector<BandFloatArray> fPhasePos;
-
     std::atomic<float> fTapTempoBpm { 120.0f };
     std::atomic<double> dLastTapTimeMs { 0.0 };
     bool bWasPlaying = false;
 
-    using Filter = juce::dsp::IIR::Filter<float>;
-    using MultiChannelFilter = juce::OwnedArray<Filter>;
+    juce::OwnedArray<juce::dsp::IIR::Filter<float>> subBass, bassLower, bassUpper, midLower, midUpper, treble, resonanceFilter;
 
-    MultiChannelFilter subBass, bassLower, bassUpper, midLower, midUpper, treble, resonanceFilter;
+    Modulation modulation;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AutoTremolandoAudioProcessor)
 };

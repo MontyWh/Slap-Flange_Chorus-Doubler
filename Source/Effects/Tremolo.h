@@ -7,7 +7,7 @@
     Date/Time: 24th April 2026
     General Language: English (UK)
 
-    This file contains the basic framework code for a custom JUCE component.
+    Tremolo equations-only helpers.
 
   ==============================================================================
 */
@@ -15,41 +15,69 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <algorithm>
+#include <cmath>
 
-//==============================================================================
-/*
-*/
-class Tremolo  : public juce::Component
+class Tremolo
 {
 public:
-    Tremolo()
+    static float getChannelScale(int channelIndex, int totalNumInputChannels)
     {
-        // In your constructor, you should add any child components, and
-        // initialise any special settings that your component needs.
-
+        return (totalNumInputChannels <= 1) ? 0.0f
+            : static_cast<float>(channelIndex) / static_cast<float>(totalNumInputChannels - 1);
     }
 
-    ~Tremolo() override
+    static float getPhaseOffsetForChannel(int channelIndex, int totalNumInputChannels, float phaseOffsetDegrees, float surroundWidth)
     {
+        const float fMaxOffset = juce::degreesToRadians(phaseOffsetDegrees) * surroundWidth;
+        return fMaxOffset * getChannelScale(channelIndex, totalNumInputChannels);
     }
 
-    void paint (juce::Graphics& g) override
+    static float getRateWithOffset(float rate, float rateOffset, float channelScale)
     {
-        /* This demo code just fills the component's background and
-           draws some placeholder text to get you started.
-
-           You should replace everything in this method with your own
-           drawing code..
-        */
-
-        
+        return std::clamp(rate + (rateOffset * channelScale), 0.5f, 16.0f);
     }
 
-    void resized() override
+    static float getDepthWithOffset(float depth, float depthOffset, float channelScale)
     {
-        // This method is where you should set the bounds of any child
-        // components that your component contains..
+        return std::clamp(depth + (depthOffset * channelScale), 0.0f, 1.0f);
+    }
 
+    static float getPhaseIncrement(float rate, float sampleRate)
+    {
+        return (juce::MathConstants<float>::twoPi * rate) / sampleRate;
+    }
+
+    static float wrapPhase(float phase)
+    {
+        const float fDoublePi = juce::MathConstants<float>::twoPi;
+        while (phase > fDoublePi)
+            phase -= fDoublePi;
+        return phase;
+    }
+
+    static float getOscillatorValue(int choice, float phase, float pulseWidth)
+    {
+        if (choice == 0)
+            return std::sin(phase);
+        if (choice == 1)
+            return (phase < juce::MathConstants<float>::pi) ? (-1.0f + ((2.0f / juce::MathConstants<float>::pi) * phase)) : (3.0f - ((2.0f / juce::MathConstants<float>::pi) * phase));
+        if (choice == 2)
+            return (phase / juce::MathConstants<float>::pi) - 1.0f;
+        if (choice == 3)
+            return (phase < pulseWidth * juce::MathConstants<float>::twoPi) ? 1.0f : -1.0f;
+        if (choice == 4)
+            return (phase < juce::MathConstants<float>::pi) ? 1.0f : -1.0f;
+
+        return 0.0f;
+    }
+
+    static float getTremoloGain(float oscillatorValue, float depth, int depthMode)
+    {
+        if (depthMode == 0)
+            return (1.0f - depth) + (depth * ((oscillatorValue + 1.0f) * 0.5f));
+
+        return std::max(0.0f, 1.0f + (oscillatorValue * depth));
     }
 
 private:

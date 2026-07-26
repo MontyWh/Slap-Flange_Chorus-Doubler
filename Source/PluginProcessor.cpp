@@ -271,7 +271,7 @@ void AutoTremolandoAudioProcessor::prepareToPlay (double sampleRate, int samples
 {
 	// Use this method as the place to do any pre-playback
 	// initialisation that you need..
-	int iNumChannels = getTotalNumInputChannels();
+	int iNumInputChannels = getTotalNumInputChannels();
 	int iNumOutputChannels = getTotalNumOutputChannels();
 
 	fSampleRate = static_cast<float>(sampleRate);
@@ -289,22 +289,22 @@ void AutoTremolandoAudioProcessor::prepareToPlay (double sampleRate, int samples
 	treble.clear();
 	resonanceFilter.clear();
 
-	for (int iChannel = 0; iChannel < iNumChannels; ++iChannel)
+	for (int iChannel = 0; iChannel < iNumInputChannels; ++iChannel)
 	{
-		subBass.add(new Filter());      subBass[iChannel]->prepare(spec);
-		bassLower.add(new Filter());    bassLower[iChannel]->prepare(spec);
-		bassUpper.add(new Filter());    bassUpper[iChannel]->prepare(spec);
-		midLower.add(new Filter());     midLower[iChannel]->prepare(spec);
-		midUpper.add(new Filter());     midUpper[iChannel]->prepare(spec);
-		treble.add(new Filter());       treble[iChannel]->prepare(spec);
-		resonanceFilter.add(new Filter()); resonanceFilter[iChannel]->prepare(spec);
+		subBass.add(new juce::dsp::IIR::Filter<float>);      subBass[iChannel]->prepare(spec);
+		bassLower.add(new juce::dsp::IIR::Filter<float>);    bassLower[iChannel]->prepare(spec);
+		bassUpper.add(new juce::dsp::IIR::Filter<float>);    bassUpper[iChannel]->prepare(spec);
+		midLower.add(new juce::dsp::IIR::Filter<float>());     midLower[iChannel]->prepare(spec);
+		midUpper.add(new juce::dsp::IIR::Filter<float>());     midUpper[iChannel]->prepare(spec);
+		treble.add(new juce::dsp::IIR::Filter<float>());       treble[iChannel]->prepare(spec);
+		resonanceFilter.add(new juce::dsp::IIR::Filter<float>()); resonanceFilter[iChannel]->prepare(spec);
 	}
 
-	Modulation::initialisePhaseState(fPhaseOffset,
-		fPhasePos,
-		iNumChannels,
+	Modulation::initialisePhaseState(modulation.fPhaseOffset,
+		modulation.fPhasePos,
+		iNumInputChannels,
 		iNumOutputChannels,
-		*apvts.getRawParameterValue("START_PHASE"));
+		*apvts.getRawParameterValue("START_PHASE")); // Initialise the phase state for modulation
 
 	bWasPlaying = false;
 	fInputMeterLevel.store(0.0f); // Reset the input meter level to 0.0f
@@ -313,8 +313,23 @@ void AutoTremolandoAudioProcessor::prepareToPlay (double sampleRate, int samples
 
 void AutoTremolandoAudioProcessor::releaseResources()
 {
-    // When playback stops, you can use this as an opportunity to free up any
-    // spare memory, etc.
+	// When playback stops, you can use this as an opportunity to free up any
+	// spare memory, etc.
+
+	subBass.clear();
+	bassLower.clear();
+	bassUpper.clear();
+	midLower.clear();
+	midUpper.clear();
+	treble.clear();
+	resonanceFilter.clear();
+
+	modulation.fPhaseOffset.clear();
+	modulation.fPhasePos.clear();
+
+	fInputMeterLevel.store(0.0f);
+	fOutputMeterLevel.store(0.0f);
+	bWasPlaying = false;
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -343,17 +358,8 @@ void AutoTremolandoAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 {
 	juce::ignoreUnused (midiMessages);
 	juce::ScopedNoDenormals noDenormals;
-	auto totalNumInputChannels  = getTotalNumInputChannels();
-	auto totalNumOutputChannels = getTotalNumOutputChannels();
-
-	// In case we have more outputs than inputs, this code clears any output
-	// channels that didn't contain input data, (because these aren't
-	// guaranteed to be empty - they may contain garbage).
-	// This is here to avoid people getting screaming feedback
-	// when they first compile a plugin, but obviously you don't need to keep
-	// this code if your algorithm always overwrites all the output channels.
-	for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-		buffer.clear (i, 0, buffer.getNumSamples());
+	auto iTotalNumInputChannels = getTotalNumInputChannels();
+	auto iTotalNumOutputChannels = getTotalNumOutputChannels();
 
 	// This is the place where you'd normally do the guts of your plugin's
 	// audio processing...
@@ -361,10 +367,9 @@ void AutoTremolandoAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 	// the samples and the outer loop is handling the channels.
 	// Alternatively, you can process the samples with the channels
 	// interleaved by keeping the same state.
-	if (totalNumInputChannels <= 0)
+	if (iTotalNumInputChannels <= 0)
 		return;
 
-	const int iTotalNumInputChannels = totalNumInputChannels;
 	const bool bBypass = *apvts.getRawParameterValue("BYPASS") > 0.5f;
 	const bool bTempoSync = *apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
 	const bool bRateLock = *apvts.getRawParameterValue("RATE_LOCK") > 0.5f;
@@ -384,8 +389,8 @@ void AutoTremolandoAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 	const float fMasterRate = *apvts.getRawParameterValue("MASTER_RATE");
 	const float fBypassMix = bBypass ? 1.0f : 0.0f;
 
-	BandFloatArray fRate{}; // Array to hold the rate values for each band
-	BandFloatArray fDepth{}; // Array to hold the depth values for each band
+	std::array<float, iBandCount> fRate{}; // Array to hold the rate values for each band
+	std::array<float, iBandCount> fDepth{}; // Array to hold the depth values for each band
 	for (int iBand = 0; iBand < iBandCount; ++iBand)
 		fRate[static_cast<size_t>(iBand)] = *apvts.getRawParameterValue(getRateParamIds()[static_cast<size_t>(iBand)]); // Get the rate parameter for each band
 
@@ -402,16 +407,21 @@ void AutoTremolandoAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 	}
 
 	if (bTempoSync && bRetriggerOnPlay && bIsPlaying && !bWasPlaying) // If tempo sync is enabled, retrigger on play is enabled, the host is playing, and it wasn't playing before
-		Modulation::retriggerPhases(fPhasePos, fStartPhaseDegrees); // Retrigger the phases to the start phase
+		Modulation::retriggerPhases(modulation.fPhasePos, fStartPhaseDegrees); // Retrigger the phases to the start phase
 	bWasPlaying = bIsPlaying; // Update the previous playing state for the next block
 
 	if (bTempoSync) // If tempo sync is enabled, apply the tempo sync to the rate values
 	{
-		BandIntArray iDivIdx; // Array to hold the note division indices for each band
+		std::array<int, iBandCount> iDivIdx; // Array to hold the note division indices for each band
 		for (int iBand = 0; iBand < iBandCount; ++iBand)
 			iDivIdx[static_cast<size_t>(iBand)] = static_cast<int>(*apvts.getRawParameterValue(getNoteDivisionParamIds()[static_cast<size_t>(iBand)])); // Get the note division parameter for each band
 
-		Modulation::applyTempoSync(fRate, iDivIdx, fSyncBpm); // Apply the tempo sync to the rate values based on the note division indices and the sync BPM
+		Modulation::processRates(fRate, iDivIdx, fSyncBpm, true, bRateLock); // Apply tempo sync and optionally rate lock
+	}
+	else if (bRateLock)
+	{
+		std::array<int, iBandCount> iDivIdx{}; // Dummy, not used
+		Modulation::processRates(fRate, iDivIdx, fSyncBpm, false, true); // Apply only rate lock
 	}
 
 	for (int iBand = 0; iBand < iBandCount; ++iBand)
@@ -424,12 +434,6 @@ void AutoTremolandoAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 		fRate[static_cast<size_t>(iBand)] = fScaledRate; // Update the rate value for the band with the scaled value
 		fDepth[static_cast<size_t>(iBand)] = *apvts.getRawParameterValue(getDepthParamIds()[static_cast<size_t>(iBand)]); // Get the depth parameter for each band
 	}
-
-	if (bRateLock) // If rate lock is enabled, apply the rate lock to the rate values
-		Modulation::applyRateLock(fRate); // Apply the rate lock to the rate values to ensure they are synchronized across bands
-
-	// Update the phase offsets for each channel based on the phase offset degrees and surround width
-	Modulation::updatePhaseOffsets(fPhaseOffset, iTotalNumInputChannels, fPhaseOffsetDegrees, fSurroundWidth);
 
 	FilterCoefficients coeffs;
 	const float fPresenceFreq = (fPresence * 19000.0f) + 1000.0f;
@@ -452,7 +456,7 @@ void AutoTremolandoAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 		treble[iChannel]->coefficients = coeffs.treble;
 	}
 
-	BandIntArray iChoice;
+	std::array<int, iBandCount> iChoice;
 	for (int iBand = 0; iBand < iBandCount; ++iBand)
 		iChoice[static_cast<size_t>(iBand)] = static_cast<int>(*apvts.getRawParameterValue(getChoiceParamIds()[static_cast<size_t>(iBand)])); // Get the tremolo waveform choice parameter for each band
 
@@ -461,35 +465,42 @@ void AutoTremolandoAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 
 	for (int iChannel = 0; iChannel < iTotalNumInputChannels; ++iChannel)
 	{
-		const float fChannelScale = iTotalNumInputChannels <= 1 ? 0.0f : static_cast<float>(iChannel) / static_cast<float>(iTotalNumInputChannels - 1);
 		auto* channelData = buffer.getWritePointer(iChannel);
 		const int iNumSamples = buffer.getNumSamples();
+		std::array<float, iBandCount> fChannelRate;
+		std::array<float, iBandCount> fChannelDepth;
+
+		// Prepare modulation (phase offsets and channel-specific offsets)
+		Modulation::prepareModulation(modulation.fPhaseOffset,
+			fChannelRate,
+			fChannelDepth,
+			fRate,
+			fDepth,
+			fPhaseOffsetDegrees,
+			fSurroundWidth,
+			fRateOffset,
+			fDepthOffset,
+			iChannel,
+			iTotalNumInputChannels,
+			iTotalNumOutputChannels);
 
 		for (int iSample = 0; iSample < iNumSamples; ++iSample)
 		{
-			BandFloatArray fChannelRate;
-			BandFloatArray fChannelDepth;
-			for (int iBand = 0; iBand < iBandCount; ++iBand)
-			{
-				fChannelRate[static_cast<size_t>(iBand)] = std::clamp(fRate[static_cast<size_t>(iBand)] + (fRateOffset * fChannelScale), 0.5f, 16.0f);
-				fChannelDepth[static_cast<size_t>(iBand)] = std::clamp(fDepth[static_cast<size_t>(iBand)] + (fDepthOffset * fChannelScale), 0.0f, 1.0f);
-			}
-
 			const auto input = channelData[iSample];
 			const auto dry = input * fInGain;
 			const auto wet = resonanceFilter[iChannel]->processSample(dry) * 0.59f;
 
-			BandFloatArray fBand;
+			std::array<float, iBandCount> fBand;
 			fBand[0] = subBass[iChannel]->processSample(wet);
 			fBand[1] = bassUpper[iChannel]->processSample(wet) + bassLower[iChannel]->processSample(dry);
 			fBand[2] = midUpper[iChannel]->processSample(wet) + midLower[iChannel]->processSample(dry);
 			fBand[3] = treble[iChannel]->processSample(wet);
 
 			Modulation::applyBandTremolo(fBand,
-				fPhasePos,
+				modulation.fPhasePos,
 				iChannel,
 				fChannelRate,
-				fPhaseOffset,
+				modulation.fPhaseOffset,
 				iChoice,
 				fPulseWidth,
 				fChannelDepth,
