@@ -37,8 +37,6 @@ public:
 #endif
 
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
-    void processBlock (juce::AudioBuffer<double>&, juce::MidiBuffer&) override;
-    bool supportsDoublePrecisionProcessing() const override;
 
     //==============================================================================
     juce::AudioProcessorEditor* createEditor() override;
@@ -106,9 +104,6 @@ private:
     static const std::array<const char*, iBandCount>& getDepthParamIds();
     static const std::array<const char*, iBandCount>& getChoiceParamIds();
     static const std::array<const char*, iBandCount>& getNoteDivisionParamIds();
-
-    template <typename SampleType>
-    void processAudioBlock (juce::AudioBuffer<SampleType>& buffer);
 
     float fSampleRate = 0.0f;
 

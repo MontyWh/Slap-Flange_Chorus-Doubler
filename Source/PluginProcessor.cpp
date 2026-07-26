@@ -339,14 +339,32 @@ bool AutoTremolandoAudioProcessor::isBusesLayoutSupported (const BusesLayout& la
 #endif
 
 //==============================================================================
-template <typename SampleType>
-void AutoTremolandoAudioProcessor::processAudioBlock(juce::AudioBuffer<SampleType>& buffer)
+void AutoTremolandoAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+	juce::ignoreUnused (midiMessages);
 	juce::ScopedNoDenormals noDenormals;
-	const int iTotalNumInputChannels = getTotalNumInputChannels();
-	if (iTotalNumInputChannels <= 0)
+	auto totalNumInputChannels  = getTotalNumInputChannels();
+	auto totalNumOutputChannels = getTotalNumOutputChannels();
+
+	// In case we have more outputs than inputs, this code clears any output
+	// channels that didn't contain input data, (because these aren't
+	// guaranteed to be empty - they may contain garbage).
+	// This is here to avoid people getting screaming feedback
+	// when they first compile a plugin, but obviously you don't need to keep
+	// this code if your algorithm always overwrites all the output channels.
+	for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+		buffer.clear (i, 0, buffer.getNumSamples());
+
+	// This is the place where you'd normally do the guts of your plugin's
+	// audio processing...
+	// Make sure to reset the state if your inner loop is processing
+	// the samples and the outer loop is handling the channels.
+	// Alternatively, you can process the samples with the channels
+	// interleaved by keeping the same state.
+	if (totalNumInputChannels <= 0)
 		return;
 
+	const int iTotalNumInputChannels = totalNumInputChannels;
 	const bool bBypass = *apvts.getRawParameterValue("BYPASS") > 0.5f;
 	const bool bTempoSync = *apvts.getRawParameterValue("TEMPO_SYNC") > 0.5f;
 	const bool bRateLock = *apvts.getRawParameterValue("RATE_LOCK") > 0.5f;
@@ -458,15 +476,14 @@ void AutoTremolandoAudioProcessor::processAudioBlock(juce::AudioBuffer<SampleTyp
 			}
 
 			const auto input = channelData[iSample];
-			const auto dry = input * static_cast<SampleType>(fInGain);
-			const auto wet = static_cast<SampleType>(resonanceFilter[iChannel]->processSample(static_cast<float>(dry)))
-				* static_cast<SampleType>(0.59f);
+			const auto dry = input * fInGain;
+			const auto wet = resonanceFilter[iChannel]->processSample(dry) * 0.59f;
 
 			BandFloatArray fBand;
-			fBand[0] = subBass[iChannel]->processSample(static_cast<float>(wet));
-			fBand[1] = bassUpper[iChannel]->processSample(static_cast<float>(wet)) + bassLower[iChannel]->processSample(static_cast<float>(dry));
-			fBand[2] = midUpper[iChannel]->processSample(static_cast<float>(wet)) + midLower[iChannel]->processSample(static_cast<float>(dry));
-			fBand[3] = treble[iChannel]->processSample(static_cast<float>(wet));
+			fBand[0] = subBass[iChannel]->processSample(wet);
+			fBand[1] = bassUpper[iChannel]->processSample(wet) + bassLower[iChannel]->processSample(dry);
+			fBand[2] = midUpper[iChannel]->processSample(wet) + midLower[iChannel]->processSample(dry);
+			fBand[3] = treble[iChannel]->processSample(wet);
 
 			Modulation::applyBandTremolo(fBand,
 				fPhasePos,
@@ -479,51 +496,19 @@ void AutoTremolandoAudioProcessor::processAudioBlock(juce::AudioBuffer<SampleTyp
 				iDepthMode,
 				fSampleRate);
 
-			const auto summedBands = static_cast<SampleType>(fBand[0]) + static_cast<SampleType>(fBand[1])
-				+ static_cast<SampleType>(fBand[2]) + static_cast<SampleType>(fBand[3]);
-			auto processed = (summedBands * static_cast<SampleType>(fWetDryControl))
-				+ (dry * (static_cast<SampleType>(1.0f) - static_cast<SampleType>(fWetDryControl)));
-			processed *= static_cast<SampleType>(fOutGain);
-			const auto output = (processed * static_cast<SampleType>(1.0f - fBypassMix)) + (input * static_cast<SampleType>(fBypassMix));
+			const auto summedBands = fBand[0] + fBand[1] + fBand[2] + fBand[3];
+			auto processed = (summedBands * fWetDryControl) + (dry * (1.0f - fWetDryControl));
+			processed *= fOutGain;
+			const auto output = (processed * (1.0f - fBypassMix)) + (input * fBypassMix);
 			channelData[iSample] = output;
 
-			fInputPeak = juce::jmax(fInputPeak, std::abs(static_cast<float>(input)));
-			fOutputPeak = juce::jmax(fOutputPeak, std::abs(static_cast<float>(output)));
+			fInputPeak = juce::jmax(fInputPeak, std::abs(input));
+			fOutputPeak = juce::jmax(fOutputPeak, std::abs(output));
 		}
 	}
 
 	fInputMeterLevel.store(juce::jmax(fInputPeak, fInputMeterLevel.load() * 0.9f));
 	fOutputMeterLevel.store(juce::jmax(fOutputPeak, fOutputMeterLevel.load() * 0.9f));
-}
-
-void AutoTremolandoAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
-{
-	juce::ignoreUnused (midiMessages);
-	juce::ScopedNoDenormals noDenormals;
-	auto totalNumInputChannels  = getTotalNumInputChannels();
-	auto totalNumOutputChannels = getTotalNumOutputChannels();
-
-	// In case we have more outputs than inputs, this code clears any output
-	// channels that didn't contain input data, (because these aren't
-	// guaranteed to be empty - they may contain garbage).
-	// This is here to avoid people getting screaming feedback
-	// when they first compile a plugin, but obviously you don't need to keep
-	// this code if your algorithm always overwrites all the output channels.
-	for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-		buffer.clear (i, 0, buffer.getNumSamples());
-
-	processAudioBlock (buffer);
-}
-
-void AutoTremolandoAudioProcessor::processBlock (juce::AudioBuffer<double>& buffer, juce::MidiBuffer& midiMessages)
-{
-	juce::ignoreUnused (midiMessages);
-	processAudioBlock (buffer);
-}
-
-bool AutoTremolandoAudioProcessor::supportsDoublePrecisionProcessing() const
-{
-	return true;
 }
 
 //==============================================================================
