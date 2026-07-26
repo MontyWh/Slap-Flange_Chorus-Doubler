@@ -41,7 +41,6 @@ private:
     Modulation modulation;
 
     using MenuAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
-    std::unique_ptr<MenuAttachment> subTremAttach, bassTremAttach, midTremAttach, trebleTremAttach;
 
     juce::ComboBox presetMenu;
     juce::Label presetLabel;
@@ -54,10 +53,6 @@ private:
 
     bool bCurrentSync = true;
     bool bUpdatingLinkedRates = false;
-
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> rateLockAttach, retriggerAttach;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> surroundWidthAttach;
-    std::unique_ptr<MenuAttachment> depthModeAttach;
 
     double dInputMeterDisplay = 0.0;
     double dOutputMeterDisplay = 0.0;

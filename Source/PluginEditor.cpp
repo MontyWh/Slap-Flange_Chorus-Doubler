@@ -99,34 +99,7 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTrem
     }
 
     addAndMakeVisible(modulation);
-
-    setupSlider(modulation.startPhaseSlider, fUiScale);
-    modulation.startPhaseSlider.setTextValueSuffix(" deg");
-    modulation.startPhaseLabel.setText("Start Phase", juce::dontSendNotification);
-    modulation.startPhaseLabel.setJustificationType(juce::Justification::centred);
-    startPhaseAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "START_PHASE", modulation.startPhaseSlider);
-
-    juce::ComboBox* menus[4] =
-    {
-        &modulation.subTremMenu, &modulation.bassTremMenu, &modulation.midTremMenu, &modulation.trebleTremMenu
-    };
-    const juce::StringArray sWaveNames{ "Sine", "Triangle", "Sawtooth", "Pulse", "Square" };
-    for (auto* m : menus) m->addItemList(sWaveNames, 1);
-
-    modulation.subTremLabel.setText("Sub Type", juce::dontSendNotification);
-    modulation.bassTremLabel.setText("Bass Type", juce::dontSendNotification);
-    modulation.midTremLabel.setText("Mid Type", juce::dontSendNotification);
-    modulation.trebleTremLabel.setText("Treble Type", juce::dontSendNotification);
-
-    modulation.subTremLabel.setJustificationType(juce::Justification::centred);
-    modulation.bassTremLabel.setJustificationType(juce::Justification::centred);
-    modulation.midTremLabel.setJustificationType(juce::Justification::centred);
-    modulation.trebleTremLabel.setJustificationType(juce::Justification::centred);
-
-    subTremAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "SUB_TREMOLO", modulation.subTremMenu);
-    bassTremAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "BASS_TREMOLO", modulation.bassTremMenu);
-    midTremAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "MID_TREMOLO", modulation.midTremMenu);
-    trebleTremAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "TREBLE_TREMOLO", modulation.trebleTremMenu);
+    modulation.initialiseModulationControls(audioProcessor.apvts, fUiScale);
 
     presetLabel.setText("Presets", juce::dontSendNotification);
     presetLabel.setJustificationType(juce::Justification::centred);
@@ -173,50 +146,6 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTrem
             bypassButton.setButtonText(bNewBypass ? "ON" : "OFF");
         };
 
-    modulation.tempoSyncLabel.setText("Sync Mode", juce::dontSendNotification);
-    modulation.tempoSyncLabel.setJustificationType(juce::Justification::centred);
-
-    modulation.tempoSyncSlider.setButtonText("TIME");
-
-    modulation.rateLockLabel.setText("Rate Lock", juce::dontSendNotification);
-    modulation.rateLockLabel.setJustificationType(juce::Justification::centred);
-
-    modulation.rateLockButton.setClickingTogglesState(true);
-    rateLockAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(audioProcessor.apvts, "RATE_LOCK", modulation.rateLockButton);
-    modulation.rateLockButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::darkcyan);
-    modulation.rateLockButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
-    modulation.rateLockButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-    modulation.rateLockButton.setTooltip("Links Bass, Mid and Treble to the Sub rate or division");
-    modulation.rateLockButton.setButtonText(modulation.rateLockButton.getToggleState() ? "Linked" : "Unlinked");
-
-    modulation.retriggerLabel.setText("Retrigger", juce::dontSendNotification);
-    modulation.retriggerLabel.setJustificationType(juce::Justification::centred);
-
-    modulation.retriggerButton.setClickingTogglesState(true);
-    modulation.retriggerButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::darkcyan);
-    modulation.retriggerButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkslategrey);
-    modulation.retriggerButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
-    modulation.retriggerButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-    modulation.retriggerButton.setTooltip("When enabled, tremolo restarts from Start Phase each time playback starts");
-    retriggerAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(audioProcessor.apvts, "RETRIGGER_ON_PLAY", modulation.retriggerButton);
-
-    modulation.rateLockButton.setToggleState(*audioProcessor.apvts.getRawParameterValue("RATE_LOCK") > 0.5f, juce::dontSendNotification);
-    modulation.retriggerButton.setToggleState(*audioProcessor.apvts.getRawParameterValue("RETRIGGER_ON_PLAY") > 0.5f, juce::dontSendNotification);
-    modulation.retriggerButton.setButtonText(modulation.retriggerButton.getToggleState() ? "Retrig" : "Free");
-
-    modulation.surroundWidthLabel.setText("Surround Width", juce::dontSendNotification);
-    modulation.surroundWidthLabel.setJustificationType(juce::Justification::centred);
-
-    setupSlider(modulation.surroundWidthSlider, fUiScale);
-    modulation.surroundWidthSlider.setTextValueSuffix(" %");
-    surroundWidthAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "SURROUND_WIDTH", modulation.surroundWidthSlider);
-
-    modulation.depthModeLabel.setText("Depth Mode", juce::dontSendNotification);
-    modulation.depthModeLabel.setJustificationType(juce::Justification::centred);
-
-    modulation.depthModeMenu.addItemList({ "Unipolar", "Bipolar" }, 1);
-    depthModeAttach = std::make_unique<MenuAttachment>(audioProcessor.apvts, "DEPTH_MODE", modulation.depthModeMenu);
-
     inputMeterLabel.setText("Input", juce::dontSendNotification);
     inputMeterLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(inputMeterLabel);
@@ -228,27 +157,6 @@ AutoTremolandoAudioProcessorEditor::AutoTremolandoAudioProcessorEditor (AutoTrem
     addAndMakeVisible(outputMeterBar);
 
     startTimerHz(30);
-
-    auto setupDivisionSlider = [](juce::Slider& slider, juce::Label& label, juce::Label& valueLabel)
-        {
-            slider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
-            slider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
-            slider.setRange(0.0, 14.0, 1.0);
-            slider.setColour(juce::Slider::rotarySliderFillColourId, juce::Colours::cyan);
-
-            label.setJustificationType(juce::Justification::centred);
-            valueLabel.setJustificationType(juce::Justification::centred);
-        };
-
-    setupDivisionSlider(modulation.subNoteDivSlider, modulation.subNoteDivLabel, modulation.subNoteDivValueLabel);
-    setupDivisionSlider(modulation.bassNoteDivSlider, modulation.bassNoteDivLabel, modulation.bassNoteDivValueLabel);
-    setupDivisionSlider(modulation.midNoteDivSlider, modulation.midNoteDivLabel, modulation.midNoteDivValueLabel);
-    setupDivisionSlider(modulation.trebleNoteDivSlider, modulation.trebleNoteDivLabel, modulation.trebleNoteDivValueLabel);
-
-    subNoteDivAttach    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "SUB_NOTE_DIV",    modulation.subNoteDivSlider);
-    bassNoteDivAttach   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "BASS_NOTE_DIV",   modulation.bassNoteDivSlider);
-    midNoteDivAttach    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "MID_NOTE_DIV",    modulation.midNoteDivSlider);
-    trebleNoteDivAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "TREBLE_NOTE_DIV", modulation.trebleNoteDivSlider);
 
     auto updateDivisionLabels = [this]()
         {
@@ -412,8 +320,8 @@ void AutoTremolandoAudioProcessorEditor::updateChannelSpreadUiState()
 void AutoTremolandoAudioProcessorEditor::timerCallback()
 {
     updateChannelSpreadUiState();
-    dInputMeterDisplay = juce::jlimit(0.0, 1.0, (double)audioProcessor.getInputMeterLevel());
-    dOutputMeterDisplay = juce::jlimit(0.0, 1.0, (double)audioProcessor.getOutputMeterLevel());
+    dInputMeterDisplay = juce::jlimit(0.0, 1.0, static_cast<double>(audioProcessor.fInputMeterLevel.load()));
+    dOutputMeterDisplay = juce::jlimit(0.0, 1.0, static_cast<double>(audioProcessor.fOutputMeterLevel.load()));
     repaint();
 }
 

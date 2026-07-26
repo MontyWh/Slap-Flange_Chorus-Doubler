@@ -27,7 +27,7 @@ class Modulation  : public juce::Component
 {
 public:
     static constexpr int iBandCount = 4;
-    static constexpr int iNoteDivisionCount = 15;
+	static constexpr int iNoteDivisionCount = 15; // 15 note divisions: 1/4, 1/4t, 1/4d, 1/2, 1/2t, 1/2d, 1/1, 1/1t, 1/1d, 2/1, 2/1t, 2/1d, 4/1, 4/1t, 4/1d
 
     using BandFloatArray = std::array<float, iBandCount>;
     using BandIntArray = std::array<int, iBandCount>;
@@ -82,6 +82,7 @@ public:
     {
     }
 
+    //==============================================================================
     static void initialisePhaseState(std::vector<float>& phaseOffsets,
         std::vector<BandFloatArray>& phasePositions,
         int numInputChannels,
@@ -186,14 +187,155 @@ public:
         return std::max(0.0f, 1.0f + (oscillatorValue * depth));
     }
 
+    static void applyBandTremolo(BandFloatArray& bandValues,
+        std::vector<BandFloatArray>& phasePositions,
+        int channelIndex,
+        const BandFloatArray& channelRates,
+        const std::vector<float>& phaseOffsets,
+        const BandIntArray& choices,
+        float pulseWidth,
+        const BandFloatArray& channelDepths,
+        int depthMode,
+        float sampleRate)
+    {
+        const float fDoublePi = juce::MathConstants<float>::twoPi;
+
+        for (int iBand = 0; iBand < iBandCount; ++iBand)
+        {
+            const float fPhaseIncrement = (fDoublePi * channelRates[static_cast<size_t>(iBand)]) / sampleRate;
+            phasePositions[static_cast<size_t>(channelIndex)][static_cast<size_t>(iBand)] = wrapPhase(phasePositions[static_cast<size_t>(channelIndex)][static_cast<size_t>(iBand)] + fPhaseIncrement);
+
+            const float fPhase = wrapPhase(phasePositions[static_cast<size_t>(channelIndex)][static_cast<size_t>(iBand)] + phaseOffsets[static_cast<size_t>(channelIndex)]);
+            const float fOscillator = getOscillatorValue(choices[static_cast<size_t>(iBand)], fPhase, pulseWidth);
+            const float fTremolo = getTremoloGain(fOscillator, channelDepths[static_cast<size_t>(iBand)], depthMode);
+            bandValues[static_cast<size_t>(iBand)] *= fTremolo;
+        }
+    }
+
+    void initialiseModulationControls(juce::AudioProcessorValueTreeState& apvts, float fUiScale)
+    {
+
+        // Helper lambda for slider setup
+        auto setupSlider = [fUiScale](juce::Slider& s)
+        {
+            s.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+            s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 
+                             juce::roundToInt(60.0f * fUiScale), 
+                             juce::roundToInt(20.0f * fUiScale));
+        };
+
+        setupSlider(startPhaseSlider);
+        startPhaseSlider.setTextValueSuffix(" deg");
+        startPhaseLabel.setText("Start Phase", juce::dontSendNotification);
+        startPhaseLabel.setJustificationType(juce::Justification::centred);
+        startPhaseAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            apvts, "START_PHASE", startPhaseSlider);
+
+        juce::ComboBox* menus[4] = {
+            &subTremMenu, &bassTremMenu, &midTremMenu, &trebleTremMenu
+        };
+        const juce::StringArray sWaveNames{ "Sine", "Triangle", "Sawtooth", "Pulse", "Square" };
+        for (auto* m : menus)
+            m->addItemList(sWaveNames, 1);
+
+        subTremLabel.setText("Sub Type", juce::dontSendNotification);
+        bassTremLabel.setText("Bass Type", juce::dontSendNotification);
+        midTremLabel.setText("Mid Type", juce::dontSendNotification);
+        trebleTremLabel.setText("Treble Type", juce::dontSendNotification);
+
+        subTremLabel.setJustificationType(juce::Justification::centred);
+        bassTremLabel.setJustificationType(juce::Justification::centred);
+        midTremLabel.setJustificationType(juce::Justification::centred);
+        trebleTremLabel.setJustificationType(juce::Justification::centred);
+
+        subTremAttach = std::make_unique<MenuAttachment>(apvts, "SUB_TREMOLO", subTremMenu);
+        bassTremAttach = std::make_unique<MenuAttachment>(apvts, "BASS_TREMOLO", bassTremMenu);
+        midTremAttach = std::make_unique<MenuAttachment>(apvts, "MID_TREMOLO", midTremMenu);
+        trebleTremAttach = std::make_unique<MenuAttachment>(apvts, "TREBLE_TREMOLO", trebleTremMenu);
+
+        tempoSyncLabel.setText("Sync Mode", juce::dontSendNotification);
+        tempoSyncLabel.setJustificationType(juce::Justification::centred);
+        tempoSyncSlider.setButtonText("TIME");
+
+        rateLockLabel.setText("Rate Lock", juce::dontSendNotification);
+        rateLockLabel.setJustificationType(juce::Justification::centred);
+
+        rateLockButton.setClickingTogglesState(true);
+        rateLockAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+            apvts, "RATE_LOCK", rateLockButton);
+        rateLockButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::darkcyan);
+        rateLockButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+        rateLockButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        rateLockButton.setTooltip("Links Bass, Mid and Treble to the Sub rate or division");
+        rateLockButton.setButtonText(rateLockButton.getToggleState() ? "Linked" : "Unlinked");
+
+        retriggerLabel.setText("Retrigger", juce::dontSendNotification);
+        retriggerLabel.setJustificationType(juce::Justification::centred);
+
+        retriggerButton.setClickingTogglesState(true);
+        retriggerButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::darkcyan);
+        retriggerButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkslategrey);
+        retriggerButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+        retriggerButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        retriggerButton.setTooltip("When enabled, tremolo restarts from Start Phase each time playback starts");
+        retriggerAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+            apvts, "RETRIGGER_ON_PLAY", retriggerButton);
+
+        rateLockButton.setToggleState(*apvts.getRawParameterValue("RATE_LOCK") > 0.5f, juce::dontSendNotification);
+        retriggerButton.setToggleState(*apvts.getRawParameterValue("RETRIGGER_ON_PLAY") > 0.5f, juce::dontSendNotification);
+        retriggerButton.setButtonText(retriggerButton.getToggleState() ? "Retrig" : "Free");
+        surroundWidthLabel.setText("Surround Width", juce::dontSendNotification);
+        surroundWidthLabel.setJustificationType(juce::Justification::centred);
+
+        setupSlider(surroundWidthSlider);
+        surroundWidthSlider.setTextValueSuffix(" %");
+        surroundWidthAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            apvts, "SURROUND_WIDTH", surroundWidthSlider);
+
+        depthModeLabel.setText("Depth Mode", juce::dontSendNotification);
+        depthModeLabel.setJustificationType(juce::Justification::centred);
+
+        depthModeMenu.addItemList({ "Unipolar", "Bipolar" }, 1);
+        depthModeAttach = std::make_unique<MenuAttachment>(apvts, "DEPTH_MODE", depthModeMenu);
+
+        auto setupDivisionSlider = [](juce::Slider& slider, juce::Label& label, juce::Label& valueLabel)
+        {
+            slider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
+            slider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
+            slider.setRange(0.0, 14.0, 1.0);
+            slider.setColour(juce::Slider::rotarySliderFillColourId, juce::Colours::cyan);
+
+            label.setJustificationType(juce::Justification::centred);
+            valueLabel.setJustificationType(juce::Justification::centred);
+        };
+
+        setupDivisionSlider(subNoteDivSlider, subNoteDivLabel, subNoteDivValueLabel);
+        setupDivisionSlider(bassNoteDivSlider, bassNoteDivLabel, bassNoteDivValueLabel);
+        setupDivisionSlider(midNoteDivSlider, midNoteDivLabel, midNoteDivValueLabel);
+        setupDivisionSlider(trebleNoteDivSlider, trebleNoteDivLabel, trebleNoteDivValueLabel);
+
+        subNoteDivAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            apvts, "SUB_NOTE_DIV", subNoteDivSlider);
+        bassNoteDivAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            apvts, "BASS_NOTE_DIV", bassNoteDivSlider);
+        midNoteDivAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            apvts, "MID_NOTE_DIV", midNoteDivSlider);
+        trebleNoteDivAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            apvts, "TREBLE_NOTE_DIV", trebleNoteDivSlider);
+    }
+
+    //==============================================================================
     void paint (juce::Graphics& g) override
     {
-        /* This demo code just fills the component's background and
-           draws some placeholder text to get you started.
+        g.fillAll(juce::Colours::darkslategrey);
+        g.setColour(juce::Colours::white);
+        g.drawRect(getLocalBounds(), 1);
 
-           You should replace everything in this method with your own
-           drawing code..
-        */
+        g.setColour(juce::Colours::lightgrey);
+        g.setFont(juce::FontOptions(13.0f));
+        auto titleArea = getLocalBounds();
+        titleArea = titleArea.withTrimmedTop(5).withHeight(20);
+        g.drawText("Modulation Matrix", titleArea, juce::Justification::centred, true);
     }
 
     void resized() override
@@ -205,9 +347,10 @@ public:
         const int iMenuH = 25;
         const int iColGap = 10;
         const int iSliderSize = 60;
+        const int iTitleOffset = 30;
 
-        const int iMenuX = 8;
-        int iMenuY = 10;
+        const int iMenuX = 8 + iTitleOffset;
+        int iMenuY = 10 + iTitleOffset;
         const int iMenuW = 140;
 
         startPhaseSlider.setBounds(iMenuX, iMenuY, iMenuW, 100);
@@ -298,6 +441,15 @@ public:
     juce::Slider subNoteDivSlider, bassNoteDivSlider, midNoteDivSlider, trebleNoteDivSlider;
     juce::Label subNoteDivLabel, subNoteDivValueLabel, bassNoteDivLabel, bassNoteDivValueLabel,
                 midNoteDivLabel, midNoteDivValueLabel, trebleNoteDivLabel, trebleNoteDivValueLabel;
+
+    using MenuAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
+    std::unique_ptr<MenuAttachment> subTremAttach, bassTremAttach, midTremAttach, trebleTremAttach;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> startPhaseAttach;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> rateLockAttach, retriggerAttach;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> surroundWidthAttach;
+    std::unique_ptr<MenuAttachment> depthModeAttach;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+        subNoteDivAttach, bassNoteDivAttach, midNoteDivAttach, trebleNoteDivAttach;
 
 private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Modulation)

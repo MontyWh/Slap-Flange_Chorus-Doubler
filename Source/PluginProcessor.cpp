@@ -39,9 +39,9 @@ AutoTremolandoAudioProcessor::~AutoTremolandoAudioProcessor() {}
 
 juce::AudioProcessorValueTreeState::ParameterLayout AutoTremolandoAudioProcessor::createParameters()
 {
-    std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
+	std::vector<std::unique_ptr<juce::RangedAudioParameter>> params; // Vector to hold the parameters
 
-    juce::StringArray sTremoloOptions = { "Sine", "Triangle", "Sawtooth", "Pulse", "Square" };
+	juce::StringArray sTremoloOptions = { "Sine", "Triangle", "Sawtooth", "Pulse", "Square" }; // Options for the tremolo waveform selection
 
     params.push_back(std::make_unique<juce::AudioParameterChoice>("SUB_TREMOLO",    "Sub Tremolo",    sTremoloOptions, 0));
     params.push_back(std::make_unique<juce::AudioParameterChoice>("BASS_TREMOLO",   "Bass Tremolo",   sTremoloOptions, 0));
@@ -161,10 +161,7 @@ void AutoTremolandoAudioProcessor::initPresets()
 
 void AutoTremolandoAudioProcessor::loadPreset(int index)
 {
-    if (index < 0 || index >= static_cast<int>(presets.size()))
-        return;
-
-    const auto& preset = presets[static_cast<size_t>(index)];
+	const auto& preset = presets[static_cast<size_t>(index)]; // Get the preset at the specified index
 
     const char* sParamIds[] = {
         "INPUT_GAIN", "PRESENCE",
@@ -177,43 +174,31 @@ void AutoTremolandoAudioProcessor::loadPreset(int index)
         "WET", "OUTPUT_GAIN", "BYPASS"
     };
 
-    const int iValueCount = juce::jmin(static_cast<int>(preset.fValues.size()), static_cast<int>(std::size(sParamIds)));
-
-    for (int i = 0; i < iValueCount; ++i)
-        if (auto* param = apvts.getParameter(sParamIds[i]))
-            param->setValueNotifyingHost(param->convertTo0to1(preset.fValues[static_cast<size_t>(i)]));
+	for (int i = 0; i < static_cast<int>(std::size(sParamIds)); ++i) // Iterate through the parameter IDs
+		if (auto* param = apvts.getParameter(sParamIds[i]))
+			param->setValueNotifyingHost(param->convertTo0to1(preset.fValues[static_cast<size_t>(i)]));
 }
 
 void AutoTremolandoAudioProcessor::registerTapTempo()
 {
-	const double dNowMs = juce::Time::getMillisecondCounterHiRes();
-	const double dPreviousTapMs = dLastTapTimeMs.exchange(dNowMs);
-	if (dPreviousTapMs <= 0.0)
+	const double dNowMs = juce::Time::getMillisecondCounterHiRes(); // Get the current time in milliseconds
+	const double dPreviousTapMs = dLastTapTimeMs.exchange(dNowMs); // Atomically exchange the last tap time with the current time
+	if (dPreviousTapMs <= 0.0) // If this is the first tap, just store the time and
 		return;
 
-	const double dDeltaMs = dNowMs - dPreviousTapMs;
-	if (dDeltaMs < 120.0 || dDeltaMs > 2000.0)
+	const double dDeltaMs = dNowMs - dPreviousTapMs; // Calculate the time difference between the current tap and the previous tap
+	if (dDeltaMs < 120.0 || dDeltaMs > 2000.0) // Ignore taps that are too close or too far apart
 		return;
 
-	const float fNewBpm = static_cast<float>(60000.0 / dDeltaMs);
-	fTapTempoBpm.store(juce::jlimit(40.0f, 240.0f, fNewBpm));
+	const float fNewBpm = static_cast<float>(60000.0 / dDeltaMs); // Calculate the new BPM based on the time difference
+	fTapTempoBpm.store(juce::jlimit(40.0f, 240.0f, fNewBpm)); // Store the new BPM, clamped between 40 and 240
 }
 
 void AutoTremolandoAudioProcessor::resetParametersToDefaults()
 {
-    for (auto* baseParam : getParameters())
-        if (auto* rangedParam = dynamic_cast<juce::RangedAudioParameter*>(baseParam))
-            rangedParam->setValueNotifyingHost(rangedParam->getDefaultValue());
-}
-
-float AutoTremolandoAudioProcessor::getInputMeterLevel() const
-{
-    return fInputMeterLevel.load();
-}
-
-float AutoTremolandoAudioProcessor::getOutputMeterLevel() const
-{
-    return fOutputMeterLevel.load();
+    for (auto* baseParam : getParameters()) // Iterate through all parameters
+		if (auto* rangedParam = dynamic_cast<juce::RangedAudioParameter*>(baseParam)) // Check if the parameter is a ranged parameter
+			rangedParam->setValueNotifyingHost(rangedParam->getDefaultValue()); // Reset the parameter to its default value and notify the host
 }
 
 //==============================================================================
@@ -291,7 +276,7 @@ void AutoTremolandoAudioProcessor::prepareToPlay (double sampleRate, int samples
 
 	fSampleRate = static_cast<float>(sampleRate);
 
-	juce::dsp::ProcessSpec spec;
+	juce::dsp::ProcessSpec spec; // Create a ProcessSpec object to hold the processing specifications
 	spec.sampleRate = sampleRate;
 	spec.maximumBlockSize = samplesPerBlock;
 	spec.numChannels = 1;
@@ -322,8 +307,8 @@ void AutoTremolandoAudioProcessor::prepareToPlay (double sampleRate, int samples
 		*apvts.getRawParameterValue("START_PHASE"));
 
 	bWasPlaying = false;
-	fInputMeterLevel.store(0.0f);
-	fOutputMeterLevel.store(0.0f);
+	fInputMeterLevel.store(0.0f); // Reset the input meter level to 0.0f
+	fOutputMeterLevel.store(0.0f); // Reset the output meter level to 0.0f
 }
 
 void AutoTremolandoAudioProcessor::releaseResources()
@@ -367,7 +352,7 @@ void AutoTremolandoAudioProcessor::processAudioBlock(juce::AudioBuffer<SampleTyp
 	const bool bRateLock = *apvts.getRawParameterValue("RATE_LOCK") > 0.5f;
 	const bool bRetriggerOnPlay = *apvts.getRawParameterValue("RETRIGGER_ON_PLAY") > 0.5f;
 	const float fSurroundWidth = juce::jlimit(0.0f, 1.0f, apvts.getRawParameterValue("SURROUND_WIDTH")->load());
-	const int iDepthMode = static_cast<int>(*apvts.getRawParameterValue("DEPTH_MODE"));
+	const int iDepthMode = static_cast<int>(*apvts.getRawParameterValue("DEPTH_MODE")); // Cast the depth mode parameter to an int
 
 	const float fInGain = std::pow(*apvts.getRawParameterValue("INPUT_GAIN"), 3.0f);
 	const float fOutGain = std::pow(*apvts.getRawParameterValue("OUTPUT_GAIN"), 3.0f);
@@ -381,49 +366,52 @@ void AutoTremolandoAudioProcessor::processAudioBlock(juce::AudioBuffer<SampleTyp
 	const float fMasterRate = *apvts.getRawParameterValue("MASTER_RATE");
 	const float fBypassMix = bBypass ? 1.0f : 0.0f;
 
-	BandFloatArray fRate {};
-	BandFloatArray fDepth {};
+	BandFloatArray fRate{}; // Array to hold the rate values for each band
+	BandFloatArray fDepth{}; // Array to hold the depth values for each band
 	for (int iBand = 0; iBand < iBandCount; ++iBand)
-		fRate[static_cast<size_t>(iBand)] = *apvts.getRawParameterValue(getRateParamIds()[static_cast<size_t>(iBand)]);
+		fRate[static_cast<size_t>(iBand)] = *apvts.getRawParameterValue(getRateParamIds()[static_cast<size_t>(iBand)]); // Get the rate parameter for each band
 
-	float fSyncBpm = fTapTempoBpm.load();
-	bool bIsPlaying = false;
-	if (auto* ph = getPlayHead())
+	float fSyncBpm = fTapTempoBpm.load(); // Load the current tap tempo BPM
+	bool bIsPlaying = false; // Flag to indicate if the plugin host's transport is currently playing
+	if (auto* ph = getPlayHead()) // Get the plugin host's playhead
 	{
-		if (auto pos = ph->getPosition())
+		if (auto pos = ph->getPosition()) // Get the current position of the playhead
 		{
-			if (auto optBpm = pos->getBpm())
-				fSyncBpm = static_cast<float>(*optBpm);
-			bIsPlaying = pos->getIsPlaying();
+			if (auto optBpm = pos->getBpm()) // Get the current BPM from the playhead position
+				fSyncBpm = static_cast<float>(*optBpm); // Update the sync BPM if available. Cast to float for consistency with other BPM values
+			bIsPlaying = pos->getIsPlaying(); // Update the playing state
 		}
 	}
 
-	if (bTempoSync && bRetriggerOnPlay && bIsPlaying && !bWasPlaying)
-		Modulation::retriggerPhases(fPhasePos, fStartPhaseDegrees);
-	bWasPlaying = bIsPlaying;
+	if (bTempoSync && bRetriggerOnPlay && bIsPlaying && !bWasPlaying) // If tempo sync is enabled, retrigger on play is enabled, the host is playing, and it wasn't playing before
+		Modulation::retriggerPhases(fPhasePos, fStartPhaseDegrees); // Retrigger the phases to the start phase
+	bWasPlaying = bIsPlaying; // Update the previous playing state for the next block
 
-	if (bTempoSync)
+	if (bTempoSync) // If tempo sync is enabled, apply the tempo sync to the rate values
 	{
-		BandIntArray iDivIdx;
+		BandIntArray iDivIdx; // Array to hold the note division indices for each band
 		for (int iBand = 0; iBand < iBandCount; ++iBand)
-			iDivIdx[static_cast<size_t>(iBand)] = static_cast<int>(*apvts.getRawParameterValue(getNoteDivisionParamIds()[static_cast<size_t>(iBand)]));
+			iDivIdx[static_cast<size_t>(iBand)] = static_cast<int>(*apvts.getRawParameterValue(getNoteDivisionParamIds()[static_cast<size_t>(iBand)])); // Get the note division parameter for each band
 
-		Modulation::applyTempoSync(fRate, iDivIdx, fSyncBpm);
+		Modulation::applyTempoSync(fRate, iDivIdx, fSyncBpm); // Apply the tempo sync to the rate values based on the note division indices and the sync BPM
 	}
 
 	for (int iBand = 0; iBand < iBandCount; ++iBand)
 	{
-		fRate[static_cast<size_t>(iBand)] = std::clamp(fRate[static_cast<size_t>(iBand)] * fMasterRate, 0.5f, 16.0f);
-		fDepth[static_cast<size_t>(iBand)] = *apvts.getRawParameterValue(getDepthParamIds()[static_cast<size_t>(iBand)]);
+		float fScaledRate = fRate[static_cast<size_t>(iBand)] * fMasterRate; // Scale the rate value by the master rate
+		fScaledRate = (16.0f * fScaledRate) / (16.0f + fScaledRate); // Apply a non-linear scaling to the rate value to keep it within a reasonable range
+		if (fScaledRate < 0.5f)
+			fScaledRate = 0.5f;
+
+		fRate[static_cast<size_t>(iBand)] = fScaledRate; // Update the rate value for the band with the scaled value
+		fDepth[static_cast<size_t>(iBand)] = *apvts.getRawParameterValue(getDepthParamIds()[static_cast<size_t>(iBand)]); // Get the depth parameter for each band
 	}
 
-	if (bRateLock)
-		Modulation::applyRateLock(fRate);
+	if (bRateLock) // If rate lock is enabled, apply the rate lock to the rate values
+		Modulation::applyRateLock(fRate); // Apply the rate lock to the rate values to ensure they are synchronized across bands
 
-	Modulation::updatePhaseOffsets(fPhaseOffset,
-		iTotalNumInputChannels,
-		fPhaseOffsetDegrees,
-		fSurroundWidth);
+	// Update the phase offsets for each channel based on the phase offset degrees and surround width
+	Modulation::updatePhaseOffsets(fPhaseOffset, iTotalNumInputChannels, fPhaseOffsetDegrees, fSurroundWidth);
 
 	FilterCoefficients coeffs;
 	const float fPresenceFreq = (fPresence * 19000.0f) + 1000.0f;
@@ -448,9 +436,8 @@ void AutoTremolandoAudioProcessor::processAudioBlock(juce::AudioBuffer<SampleTyp
 
 	BandIntArray iChoice;
 	for (int iBand = 0; iBand < iBandCount; ++iBand)
-		iChoice[static_cast<size_t>(iBand)] = static_cast<int>(*apvts.getRawParameterValue(getChoiceParamIds()[static_cast<size_t>(iBand)]));
+		iChoice[static_cast<size_t>(iBand)] = static_cast<int>(*apvts.getRawParameterValue(getChoiceParamIds()[static_cast<size_t>(iBand)])); // Get the tremolo waveform choice parameter for each band
 
-	const float fDoublePi = juce::MathConstants<float>::twoPi;
 	float fInputPeak = 0.0f;
 	float fOutputPeak = 0.0f;
 
@@ -481,16 +468,16 @@ void AutoTremolandoAudioProcessor::processAudioBlock(juce::AudioBuffer<SampleTyp
 			fBand[2] = midUpper[iChannel]->processSample(static_cast<float>(wet)) + midLower[iChannel]->processSample(static_cast<float>(dry));
 			fBand[3] = treble[iChannel]->processSample(static_cast<float>(wet));
 
-			for (int iBand = 0; iBand < iBandCount; ++iBand)
-			{
-				const float fPhaseIncrement = (fDoublePi * fChannelRate[static_cast<size_t>(iBand)]) / fSampleRate;
-				fPhasePos[static_cast<size_t>(iChannel)][static_cast<size_t>(iBand)] = Modulation::wrapPhase(fPhasePos[static_cast<size_t>(iChannel)][static_cast<size_t>(iBand)] + fPhaseIncrement);
-
-				const float fPhase = Modulation::wrapPhase(fPhasePos[static_cast<size_t>(iChannel)][static_cast<size_t>(iBand)] + fPhaseOffset[static_cast<size_t>(iChannel)]);
-				const float fOsc = Modulation::getOscillatorValue(iChoice[static_cast<size_t>(iBand)], fPhase, fPulseWidth);
-				const float fTrem = Modulation::getTremoloGain(fOsc, fChannelDepth[static_cast<size_t>(iBand)], iDepthMode);
-				fBand[static_cast<size_t>(iBand)] *= fTrem;
-			}
+			Modulation::applyBandTremolo(fBand,
+				fPhasePos,
+				iChannel,
+				fChannelRate,
+				fPhaseOffset,
+				iChoice,
+				fPulseWidth,
+				fChannelDepth,
+				iDepthMode,
+				fSampleRate);
 
 			const auto summedBands = static_cast<SampleType>(fBand[0]) + static_cast<SampleType>(fBand[1])
 				+ static_cast<SampleType>(fBand[2]) + static_cast<SampleType>(fBand[3]);

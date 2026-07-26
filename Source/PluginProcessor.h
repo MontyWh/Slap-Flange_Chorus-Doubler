@@ -77,8 +77,9 @@ public:
 
     void registerTapTempo();
     void resetParametersToDefaults();
-    float getInputMeterLevel() const;
-    float getOutputMeterLevel() const;
+
+    std::atomic<float> fInputMeterLevel { 0.0f };
+    std::atomic<float> fOutputMeterLevel { 0.0f };
 
 private:
     static constexpr int iBandCount = Modulation::iBandCount;
@@ -117,8 +118,6 @@ private:
 
     std::atomic<float> fTapTempoBpm { 120.0f };
     std::atomic<double> dLastTapTimeMs { 0.0 };
-    std::atomic<float> fInputMeterLevel { 0.0f };
-    std::atomic<float> fOutputMeterLevel { 0.0f };
     bool bWasPlaying = false;
 
     using Filter = juce::dsp::IIR::Filter<float>;
