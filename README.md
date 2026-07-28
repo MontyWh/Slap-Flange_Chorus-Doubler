@@ -1,2 +1,2 @@
-# AutoPhonic FX
+# Slap-Flange Chorus-Doubler
 
