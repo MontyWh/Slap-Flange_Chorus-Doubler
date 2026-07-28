@@ -1,2 +1,2 @@
-# Slap-Flange Chorus-Doubler
+# AutoTremolando
 
