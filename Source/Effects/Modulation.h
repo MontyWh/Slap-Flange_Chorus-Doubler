@@ -173,7 +173,7 @@ public:
         };
         const juce::StringArray sWaveNames{ "Sine", "Triangle", "Sawtooth", "Pulse", "Square" };
         for (auto* m : menus)
-            m->addItemList(sWaveNames, 1);
+			m->addItemList(sWaveNames, 1); // Add wave type options to the combo boxes
 
         subTremLabel.setText("Sub Type", juce::dontSendNotification);
         bassTremLabel.setText("Bass Type", juce::dontSendNotification);

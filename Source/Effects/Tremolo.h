@@ -46,17 +46,17 @@ public:
         int numOutputChannels,
         float startPhaseDegrees)
     {
-        phaseOffsets.assign(numOutputChannels, 0.0f);
-        phasePositions.assign(static_cast<size_t>(numInputChannels), { 0.0f, 0.0f, 0.0f, 0.0f });
-        retriggerPhases(phasePositions, startPhaseDegrees);
+		phaseOffsets.assign(numOutputChannels, 0.0f); // Initialise phase offsets for each output channel
+		phasePositions.assign(numInputChannels, { 0.0f, 0.0f, 0.0f, 0.0f }); // Initialise phase positions for each input channel and band
+		retriggerPhases(phasePositions, startPhaseDegrees); // Retrigger the phases for each input channel and band
     }
 
     void retriggerPhases(std::vector<std::array<float, iBandCount>>& phasePositions, float startPhaseDegrees)
     {
-        const float fStartPhaseRadians = juce::degreesToRadians(startPhaseDegrees);
+        const float fStartPhaseRadians = juce::degreesToRadians(startPhaseDegrees); // Convert start phase from degrees to radians
 
         for (auto& fChannelPhases : phasePositions)
-            fChannelPhases.fill(fStartPhaseRadians);
+            fChannelPhases.fill(fStartPhaseRadians); // Set all phases for the channel to the start phase
     }
 
     void processRates(std::array<float, iBandCount>& rates, const std::array<int, iBandCount>& divisionIndices, float bpm, bool applyTempoSync, bool applyRateLock)
@@ -70,19 +70,16 @@ public:
                 1.0f, 0.666667f, 1.5f,
                 2.0f, 1.333333f, 3.0f,
                 4.0f, 2.666667f, 6.0f
-            };
+			}; // Tempo multipliers for different note divisions: 1/4, 1/6, 3/8, 1/2, 1/3, 3/4, 1, 2/3, 3/2, 2, 4/3, 3, 4, 8/3, 6
 
-            const float fBeatsPerSecond = bpm / 60.0f;
+			const float fBeatsPerSecond = bpm / 60.0f; // Convert BPM to beats per second
 
-            for (int iBand = 0; iBand < iBandCount; ++iBand)
-            {
-                const int iClampedIndex = juce::jlimit(0, iNoteDivisionCount - 1, divisionIndices[static_cast<size_t>(iBand)]);
-                rates[static_cast<size_t>(iBand)] = fBeatsPerSecond * fTempoMultipliers[static_cast<size_t>(iClampedIndex)];
-            }
+			for (int iBand = 0; iBand < iBandCount; ++iBand)
+				rates[iBand] = fBeatsPerSecond * fTempoMultipliers[divisionIndices[iBand]]; // Calculate the rate for the band
         }
 
         if (applyRateLock)
-            std::fill(rates.begin() + 1, rates.end(), rates.front());
+			std::fill(rates.begin() + 1, rates.end(), rates.front()); // Lock all rates to the first band's rate
     }
 
     void prepareModulation(std::vector<float>& phaseOffsets,
@@ -96,25 +93,25 @@ public:
         float depthOffset,
         int channelIndex,
         int totalNumInputChannels,
-        int totalNumOutputChannels)
+		int totalNumOutputChannels) // Prepare the modulation parameters for the tremolo effect
     {
-        if (surroundWidth <= 0.0f || totalNumInputChannels <= 1)
+		if (surroundWidth <= 0.0f || totalNumInputChannels <= 1) // If surround width is zero or there is only one input channel, set all phase offsets to zero
         {
             std::fill(phaseOffsets.begin(), phaseOffsets.end(), 0.0f);
         }
         else
         {
-            const float fMaxOffset = juce::degreesToRadians(phaseOffsetDegrees) * surroundWidth;
+			const float fMaxOffset = juce::degreesToRadians(phaseOffsetDegrees) * surroundWidth; // Calculate the maximum phase offset in radians based on the surround width
 
             for (int iChannel = 0; iChannel < totalNumOutputChannels; ++iChannel)
             {
-                const float fChannelScale = juce::jmap(static_cast<float>(iChannel),
-                    0.0f,
-                    static_cast<float>(totalNumInputChannels - 1),
-                    0.0f,
-                    1.0f);
+				const float fChannelScale = juce::jmap(static_cast<float>(iChannel), // Map the channel index to a scale factor between 0 and 1 based on the total number of input channels
+                    0.0f, // Minimum input value
+					static_cast<float>(totalNumInputChannels - 1), // Maximum input value
+					0.0f, // Minimum output value
+					1.0f); // Maximum output value
 
-                phaseOffsets[static_cast<size_t>(iChannel)] = fMaxOffset * fChannelScale;
+				phaseOffsets[iChannel] = fMaxOffset * fChannelScale; // Set the phase offset for the channel based on the maximum offset and the scale factor
             }
         }
 
@@ -124,15 +121,15 @@ public:
                 0.0f,
                 static_cast<float>(totalNumInputChannels - 1),
                 0.0f,
-                1.0f);
+				1.0f); // Calculate the current channel scale factor based on the channel index and total number of input channels
 
         for (int iBand = 0; iBand < iBandCount; ++iBand)
         {
-            channelRates[static_cast<size_t>(iBand)] = juce::jlimit(0.5f, 16.0f,
-                rates[static_cast<size_t>(iBand)] + (rateOffset * fCurrentChannelScale));
+			channelRates[iBand] = juce::jlimit(0.5f, 16.0f, // Limit the channel rate to a range of 0.5 Hz to 16 Hz
+				rates[iBand] + (rateOffset * fCurrentChannelScale));
 
-            channelDepths[static_cast<size_t>(iBand)] = juce::jlimit(0.0f, 1.0f,
-                depths[static_cast<size_t>(iBand)] + (depthOffset * fCurrentChannelScale));
+			channelDepths[iBand] = juce::jlimit(0.0f, 1.0f, // Limit the channel depth to a range of 0.0 to 1.0
+				depths[iBand] + (depthOffset * fCurrentChannelScale));
         }
     }
 
@@ -145,63 +142,61 @@ public:
         float pulseWidth,
         const std::array<float, iBandCount>& channelDepths,
         int depthMode,
-        float sampleRate)
+		float sampleRate) // Apply the band tremolo effect to the band values based on the modulation parameters
     {
-        const float fPi = juce::MathConstants<float>::pi;
-        const float fTwoPi = juce::MathConstants<float>::twoPi;
 
         for (int iBand = 0; iBand < iBandCount; ++iBand)
         {
-            float fPhase = phasePositions[static_cast<size_t>(channelIndex)][static_cast<size_t>(iBand)]
-                + ((fTwoPi * channelRates[static_cast<size_t>(iBand)]) / sampleRate);
+			float fPhase = phasePositions[channelIndex][iBand]
+				+ ((fTwo_π * channelRates[iBand]) / sampleRate); // Update the phase for the band based on the channel rate and sample rate
 
-            fPhase = std::fmod(fPhase, fTwoPi);
-            if (fPhase < 0.0f)
-                fPhase += fTwoPi;
+			fPhase = std::fmod(fPhase, fTwo_π); // Wrap the phase to the range [0, 2fπ]
+			if (fPhase < 0.0f) // Ensure the phase is non-negative
+                fPhase += fTwo_π;
 
-            phasePositions[static_cast<size_t>(channelIndex)][static_cast<size_t>(iBand)] = fPhase;
+			phasePositions[channelIndex][iBand] = fPhase; // Store the updated phase for the band
 
-            float fShiftedPhase = std::fmod(fPhase + phaseOffsets[static_cast<size_t>(channelIndex)], fTwoPi);
-            if (fShiftedPhase < 0.0f)
-                fShiftedPhase += fTwoPi;
+			float fShiftedPhase = std::fmod(fPhase + phaseOffsets[channelIndex], fTwo_π); // Apply the phase offset for the channel and wrap to [0, 2fπ]
+			if (fShiftedPhase < 0.0f) // Ensure the shifted phase is non-negative
+				fShiftedPhase += fTwo_π; // Wrap the shifted phase to the range [0, 2fπ]
 
-            float fOscillator = 0.0f;
+			float fOscillator = 0.0f; // Initialise the oscillator value for the band
 
-            switch (choices[static_cast<size_t>(iBand)])
+            switch (choices[iBand])
             {
-                case 0:
+			    case 0: // Sine wave
                     fOscillator = std::sin(fShiftedPhase);
                     break;
 
-                case 1:
-                    fOscillator = (fShiftedPhase < fPi)
-                        ? (-1.0f + ((2.0f / fPi) * fShiftedPhase))
-                        : (3.0f - ((2.0f / fPi) * fShiftedPhase));
+			    case 1: // Triangle wave
+                    fOscillator = (fShiftedPhase < fπ)
+                        ? (-1.0f + ((2.0f / fπ) * fShiftedPhase))
+                        : (3.0f - ((2.0f / fπ) * fShiftedPhase));
                     break;
 
-                case 2:
-                    fOscillator = (fShiftedPhase / fPi) - 1.0f;
+			    case 2: // Sawtooth wave
+                    fOscillator = (fShiftedPhase / fπ) - 1.0f;
                     break;
 
-                case 3:
-                    fOscillator = (fShiftedPhase < pulseWidth * fTwoPi) ? 1.0f : -1.0f;
+				case 3: // Pulse wave
+                    fOscillator = (fShiftedPhase < pulseWidth * fTwo_π) ? 1.0f : -1.0f;
                     break;
 
-                case 4:
-                    fOscillator = (fShiftedPhase < fPi) ? 1.0f : -1.0f;
+				case 4: // Square wave
+                    fOscillator = (fShiftedPhase < fπ) ? 1.0f : -1.0f;
                     break;
 
-                default:
+				default: // Default to silence if the choice is invalid
                     fOscillator = 0.0f;
                     break;
             }
 
             const float fTremolo = (depthMode == 0)
-                ? ((1.0f - channelDepths[static_cast<size_t>(iBand)])
-                    + (channelDepths[static_cast<size_t>(iBand)] * ((fOscillator + 1.0f) * 0.5f)))
-                : juce::jmax(0.0f, 1.0f + (fOscillator * channelDepths[static_cast<size_t>(iBand)]));
+                ? ((1.0f - channelDepths[iBand])
+                    + (channelDepths[iBand] * ((fOscillator + 1.0f) * 0.5f)))
+                : juce::jmax(0.0f, 1.0f + (fOscillator * channelDepths[iBand]));
 
-            bandValues[static_cast<size_t>(iBand)] *= fTremolo;
+            bandValues[iBand] *= fTremolo;
         }
     }
 
@@ -211,5 +206,9 @@ public:
     void resized() override {}
 
 private:
+
+	const float fπ = juce::MathConstants<float>::pi;
+	const float fTwo_π = juce::MathConstants<float>::twoPi;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Tremolo)
 };
