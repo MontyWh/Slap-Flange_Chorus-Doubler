@@ -300,11 +300,11 @@ void AutoTremolandoAudioProcessor::prepareToPlay (double sampleRate, int samples
 		resonanceFilter.add(new juce::dsp::IIR::Filter<float>()); resonanceFilter[iChannel]->prepare(spec);
 	}
 
-	Modulation::initialisePhaseState(modulation.fPhaseOffset,
-		modulation.fPhasePos,
+	mod.initialisePhaseState(mod.fPhaseOffset,
+		mod.fPhasePos,
 		iNumInputChannels,
 		iNumOutputChannels,
-		*apvts.getRawParameterValue("START_PHASE")); // Initialise the phase state for modulation
+		*apvts.getRawParameterValue("START_PHASE")); // Initialise the phase state for mod
 
 	bWasPlaying = false;
 	fInputMeterLevel.store(0.0f); // Reset the input meter level to 0.0f
@@ -324,8 +324,8 @@ void AutoTremolandoAudioProcessor::releaseResources()
 	treble.clear();
 	resonanceFilter.clear();
 
-	modulation.fPhaseOffset.clear();
-	modulation.fPhasePos.clear();
+	mod.fPhaseOffset.clear();
+	mod.fPhasePos.clear();
 
 	fInputMeterLevel.store(0.0f);
 	fOutputMeterLevel.store(0.0f);
@@ -407,7 +407,7 @@ void AutoTremolandoAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 	}
 
 	if (bTempoSync && bRetriggerOnPlay && bIsPlaying && !bWasPlaying) // If tempo sync is enabled, retrigger on play is enabled, the host is playing, and it wasn't playing before
-		Modulation::retriggerPhases(modulation.fPhasePos, fStartPhaseDegrees); // Retrigger the phases to the start phase
+		mod.retriggerPhases(mod.fPhasePos, fStartPhaseDegrees); // Retrigger the phases to the start phase
 	bWasPlaying = bIsPlaying; // Update the previous playing state for the next block
 
 	if (bTempoSync) // If tempo sync is enabled, apply the tempo sync to the rate values
@@ -416,12 +416,12 @@ void AutoTremolandoAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 		for (int iBand = 0; iBand < iBandCount; ++iBand)
 			iDivIdx[static_cast<size_t>(iBand)] = static_cast<int>(*apvts.getRawParameterValue(getNoteDivisionParamIds()[static_cast<size_t>(iBand)])); // Get the note division parameter for each band
 
-		Modulation::processRates(fRate, iDivIdx, fSyncBpm, true, bRateLock); // Apply tempo sync and optionally rate lock
+		mod.processRates(fRate, iDivIdx, fSyncBpm, true, bRateLock); // Apply tempo sync and optionally rate lock
 	}
 	else if (bRateLock)
 	{
 		std::array<int, iBandCount> iDivIdx{}; // Dummy, not used
-		Modulation::processRates(fRate, iDivIdx, fSyncBpm, false, true); // Apply only rate lock
+		mod.processRates(fRate, iDivIdx, fSyncBpm, false, true); // Apply only rate lock
 	}
 
 	for (int iBand = 0; iBand < iBandCount; ++iBand)
@@ -437,7 +437,7 @@ void AutoTremolandoAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 
 	FilterCoefficients coeffs;
 	const float fPresenceFreq = (fPresence * 19000.0f) + 1000.0f;
-	coeffs.resonance = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, fPresenceFreq, 1.41f, 1.41f);
+	coeffs.resonance = juce::dsp::IIR::Coefficients<float>::makePeakFilter(fSampleRate, fPresenceFreq, 1.41f, 1.41f); // Create a peak filter for the presence control with a Q factor of 1.41
 	coeffs.sub = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 60.0f);
 	coeffs.bassLower = juce::dsp::IIR::Coefficients<float>::makeLowPass(fSampleRate, 250.0f);
 	coeffs.bassUpper = juce::dsp::IIR::Coefficients<float>::makeHighPass(fSampleRate, 60.0f);
@@ -470,8 +470,7 @@ void AutoTremolandoAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 		std::array<float, iBandCount> fChannelRate;
 		std::array<float, iBandCount> fChannelDepth;
 
-		// Prepare modulation (phase offsets and channel-specific offsets)
-		Modulation::prepareModulation(modulation.fPhaseOffset,
+		mod.prepareModulation(mod.fPhaseOffset,
 			fChannelRate,
 			fChannelDepth,
 			fRate,
@@ -482,7 +481,7 @@ void AutoTremolandoAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 			fDepthOffset,
 			iChannel,
 			iTotalNumInputChannels,
-			iTotalNumOutputChannels);
+			iTotalNumOutputChannels); // Prepare the mod parameters for the current channel
 
 		for (int iSample = 0; iSample < iNumSamples; ++iSample)
 		{
@@ -496,30 +495,30 @@ void AutoTremolandoAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 			fBand[2] = midUpper[iChannel]->processSample(wet) + midLower[iChannel]->processSample(dry);
 			fBand[3] = treble[iChannel]->processSample(wet);
 
-			Modulation::applyBandTremolo(fBand,
-				modulation.fPhasePos,
+			mod.applyBandTremolo(fBand,
+				mod.fPhasePos,
 				iChannel,
 				fChannelRate,
-				modulation.fPhaseOffset,
+				mod.fPhaseOffset,
 				iChoice,
 				fPulseWidth,
 				fChannelDepth,
 				iDepthMode,
 				fSampleRate);
 
-			const auto summedBands = fBand[0] + fBand[1] + fBand[2] + fBand[3];
-			auto processed = (summedBands * fWetDryControl) + (dry * (1.0f - fWetDryControl));
-			processed *= fOutGain;
+			const auto summedBands = fBand[0] + fBand[1] + fBand[2] + fBand[3]; // Sum the processed bands to create the final wet signal
+			auto processed = (summedBands * fWetDryControl) + (dry * (1.0f - fWetDryControl)); // Mix the wet and dry signals based on the wet/dry control parameter
+			processed *= fOutGain; // Apply the output gain to the processed signal
 			const auto output = (processed * (1.0f - fBypassMix)) + (input * fBypassMix);
 			channelData[iSample] = output;
 
-			fInputPeak = juce::jmax(fInputPeak, std::abs(input));
-			fOutputPeak = juce::jmax(fOutputPeak, std::abs(output));
+			fInputPeak = juce::jmax(fInputPeak, std::abs(input)); // Update the input peak level with the absolute value of the input sample
+			fOutputPeak = juce::jmax(fOutputPeak, std::abs(output)); // Update the output peak level with the absolute value of the output sample
 		}
 	}
 
-	fInputMeterLevel.store(juce::jmax(fInputPeak, fInputMeterLevel.load() * 0.9f));
-	fOutputMeterLevel.store(juce::jmax(fOutputPeak, fOutputMeterLevel.load() * 0.9f));
+	fInputMeterLevel.store(juce::jmax(fInputPeak, fInputMeterLevel.load() * 0.9f)); // Update the input meter level with a decay factor of 0.9
+	fOutputMeterLevel.store(juce::jmax(fOutputPeak, fOutputMeterLevel.load() * 0.9f)); // Update the output meter level with a decay factor of 0.9
 }
 
 //==============================================================================

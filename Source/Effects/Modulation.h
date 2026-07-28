@@ -26,7 +26,7 @@
 class Modulation  : public juce::Component
 {
 public:
-	static constexpr int iBandCount = 4;
+    static constexpr int iBandCount = 4;
 	static constexpr int iNoteDivisionCount = 15;
 
     Modulation()
@@ -80,26 +80,26 @@ public:
     }
 
     //==============================================================================
-    static void initialisePhaseState(std::vector<float>& phaseOffsets,
+    void initialisePhaseState(std::vector<float>& phaseOffsets,
         std::vector<std::array<float, iBandCount>>& phasePositions,
         int numInputChannels,
         int numOutputChannels,
-        float startPhaseDegrees)
+		float startPhaseDegrees) // Initialise the phase state for the tremolo effect
     {
-        getTremoloComponent().initialisePhaseState(phaseOffsets, phasePositions, numInputChannels, numOutputChannels, startPhaseDegrees);
+        trem.initialisePhaseState(phaseOffsets, phasePositions, numInputChannels, numOutputChannels, startPhaseDegrees);
     }
 
-    static void retriggerPhases(std::vector<std::array<float, iBandCount>>& phasePositions, float startPhaseDegrees)
+	void retriggerPhases(std::vector<std::array<float, iBandCount>>& phasePositions, float startPhaseDegrees) // Retrigger the phases for the tremolo effect
     {
-        getTremoloComponent().retriggerPhases(phasePositions, startPhaseDegrees);
+        trem.retriggerPhases(phasePositions, startPhaseDegrees);
     }
 
-    static void processRates(std::array<float, iBandCount>& rates, const std::array<int, iBandCount>& divisionIndices, float bpm, bool bApplyTempoSync, bool bApplyRateLock)
+    void processRates(std::array<float, iBandCount>& rates, const std::array<int, iBandCount>& divisionIndices, float bpm, bool bApplyTempoSync, bool bApplyRateLock)
     {
-        getTremoloComponent().processRates(rates, divisionIndices, bpm, bApplyTempoSync, bApplyRateLock);
+		trem.processRates(rates, divisionIndices, bpm, bApplyTempoSync, bApplyRateLock); // Process the rates for the tremolo effect
     }
 
-    static void prepareModulation(std::vector<float>& phaseOffsets,
+    void prepareModulation(std::vector<float>& phaseOffsets,
         std::array<float, iBandCount>& channelRates,
         std::array<float, iBandCount>& channelDepths,
         const std::array<float, iBandCount>& rates,
@@ -110,9 +110,9 @@ public:
         float depthOffset,
         int channelIndex,
         int totalNumInputChannels,
-        int totalNumOutputChannels)
+		int totalNumOutputChannels) // Prepare the mod for the tremolo effect
     {
-        getTremoloComponent().prepareModulation(phaseOffsets,
+        trem.prepareModulation(phaseOffsets,
             channelRates,
             channelDepths,
             rates,
@@ -126,7 +126,7 @@ public:
             totalNumOutputChannels);
     }
 
-    static void applyBandTremolo(std::array<float, iBandCount>& bandValues,
+    void applyBandTremolo(std::array<float, iBandCount>& bandValues,
         std::vector<std::array<float, iBandCount>>& phasePositions,
         int channelIndex,
         const std::array<float, iBandCount>& channelRates,
@@ -135,9 +135,9 @@ public:
         float pulseWidth,
         const std::array<float, iBandCount>& channelDepths,
         int depthMode,
-        float sampleRate)
+        float sampleRate) // Apply the band tremolo effect
     {
-        getTremoloComponent().applyBandTremolo(bandValues,
+        trem.applyBandTremolo(bandValues,
             phasePositions,
             channelIndex,
             channelRates,
@@ -149,13 +149,7 @@ public:
             sampleRate);
     }
 
-    static Tremolo& getTremoloComponent()
-    {
-        static Tremolo tremoloComponent;
-        return tremoloComponent;
-    }
-
-    void initialiseControls(juce::AudioProcessorValueTreeState& apvts, float fUiScale)
+	void initialiseControls(juce::AudioProcessorValueTreeState& apvts, float fUiScale) // Initialise the controls for the mod component
     {
 
         // Helper lambda for slider setup
@@ -396,6 +390,8 @@ public:
 
     std::vector<float> fPhaseOffset;
     std::vector<std::array<float, iBandCount>> fPhasePos;
+
+    Tremolo trem;
 
 private:
 

@@ -105,12 +105,12 @@ private:
     float fSampleRate = 0.0f;
 
     std::atomic<float> fTapTempoBpm { 120.0f };
-    std::atomic<double> dLastTapTimeMs { 0.0 };
+	std::atomic<double> dLastTapTimeMs{ 0.0 }; // Time of the last tap in milliseconds
     bool bWasPlaying = false;
 
     juce::OwnedArray<juce::dsp::IIR::Filter<float>> subBass, bassLower, bassUpper, midLower, midUpper, treble, resonanceFilter;
 
-    Modulation modulation;
+    Modulation mod;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AutoTremolandoAudioProcessor)
 };
