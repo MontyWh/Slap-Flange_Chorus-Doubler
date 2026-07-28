@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="l63ZH4" name="AutoTremolando" projectType="audioplug" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
-  <MAINGROUP id="SXhwtk" name="AutoTremolando">
+<JUCERPROJECT id="l63ZH4" name="Slap-Flange Chorus-Doubler" projectType="audioplug"
+              useAppConfig="0" addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
+  <MAINGROUP id="SXhwtk" name="Slap-Flange Chorus-Doubler">
     <GROUP id="{E04AD64D-FCDF-0798-8B0D-B2CF9FB58D09}" name="Source">
       <GROUP id="{96C1204B-2331-74EC-E764-31E701326063}" name="Effects">
         <FILE id="ECVewO" name="Modulation.h" compile="0" resource="0" file="Source/Effects/Modulation.h"/>
