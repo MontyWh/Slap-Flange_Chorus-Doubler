@@ -86,51 +86,17 @@ public:
         int numOutputChannels,
         float startPhaseDegrees)
     {
-        phaseOffsets.assign(numOutputChannels, 0.0f);
-        phasePositions.assign(static_cast<size_t>(numInputChannels), { 0.0f, 0.0f, 0.0f, 0.0f });
-
-        const float fStartPhaseRadians = juce::degreesToRadians(startPhaseDegrees);
-        for (auto& fChannelPhases : phasePositions)
-            for (int iBand = 0; iBand < iBandCount; ++iBand)
-                fChannelPhases[static_cast<size_t>(iBand)] = fStartPhaseRadians;
+        getTremoloComponent().initialisePhaseState(phaseOffsets, phasePositions, numInputChannels, numOutputChannels, startPhaseDegrees);
     }
 
     static void retriggerPhases(std::vector<std::array<float, iBandCount>>& phasePositions, float startPhaseDegrees)
     {
-        const float fStartPhaseRadians = juce::degreesToRadians(startPhaseDegrees);
-
-        for (auto& fChannelPhases : phasePositions)
-            for (int iBand = 0; iBand < iBandCount; ++iBand)
-                fChannelPhases[static_cast<size_t>(iBand)] = fStartPhaseRadians;
+        getTremoloComponent().retriggerPhases(phasePositions, startPhaseDegrees);
     }
 
     static void processRates(std::array<float, iBandCount>& rates, const std::array<int, iBandCount>& divisionIndices, float bpm, bool bApplyTempoSync, bool bApplyRateLock)
     {
-        if (bApplyTempoSync)
-        {
-            static constexpr float fTempoMultipliers[iNoteDivisionCount] =
-            {
-                0.25f, 0.166667f, 0.375f,
-                0.5f, 0.333333f, 0.75f,
-                1.0f, 0.666667f, 1.5f,
-                2.0f, 1.333333f, 3.0f,
-                4.0f, 2.666667f, 6.0f
-            };
-
-            const float fBeatsPerSecond = bpm / 60.0f;
-
-            for (int iBand = 0; iBand < iBandCount; ++iBand)
-            {
-                const int iClampedIndex = std::clamp(divisionIndices[static_cast<size_t>(iBand)], 0, iNoteDivisionCount - 1);
-                rates[static_cast<size_t>(iBand)] = fBeatsPerSecond * fTempoMultipliers[iClampedIndex];
-            }
-        }
-
-        if (bApplyRateLock)
-        {
-            for (int iBand = 1; iBand < iBandCount; ++iBand)
-                rates[static_cast<size_t>(iBand)] = rates[0];
-        }
+        getTremoloComponent().processRates(rates, divisionIndices, bpm, bApplyTempoSync, bApplyRateLock);
     }
 
     static void prepareModulation(std::vector<float>& phaseOffsets,
@@ -146,24 +112,18 @@ public:
         int totalNumInputChannels,
         int totalNumOutputChannels)
     {
-        if (surroundWidth <= 0.0f || totalNumInputChannels <= 1)
-        {
-            for (int iChannel = 0; iChannel < totalNumOutputChannels; ++iChannel)
-                phaseOffsets[static_cast<size_t>(iChannel)] = 0.0f;
-        }
-        else
-        {
-            for (int iChannel = 0; iChannel < totalNumOutputChannels; ++iChannel)
-                phaseOffsets[static_cast<size_t>(iChannel)] = Tremolo::getPhaseOffsetForChannel(iChannel, totalNumInputChannels, phaseOffsetDegrees, surroundWidth);
-        }
-
-        const float fChannelScale = Tremolo::getChannelScale(channelIndex, totalNumInputChannels);
-
-        for (int iBand = 0; iBand < iBandCount; ++iBand)
-        {
-            channelRates[static_cast<size_t>(iBand)] = Tremolo::getRateWithOffset(rates[static_cast<size_t>(iBand)], rateOffset, fChannelScale);
-            channelDepths[static_cast<size_t>(iBand)] = Tremolo::getDepthWithOffset(depths[static_cast<size_t>(iBand)], depthOffset, fChannelScale);
-        }
+        getTremoloComponent().prepareModulation(phaseOffsets,
+            channelRates,
+            channelDepths,
+            rates,
+            depths,
+            phaseOffsetDegrees,
+            surroundWidth,
+            rateOffset,
+            depthOffset,
+            channelIndex,
+            totalNumInputChannels,
+            totalNumOutputChannels);
     }
 
     static void applyBandTremolo(std::array<float, iBandCount>& bandValues,
@@ -177,18 +137,22 @@ public:
         int depthMode,
         float sampleRate)
     {
-        for (int iBand = 0; iBand < iBandCount; ++iBand)
-        {
-            float fPhase = phasePositions[static_cast<size_t>(channelIndex)][static_cast<size_t>(iBand)] + Tremolo::getPhaseIncrement(channelRates[static_cast<size_t>(iBand)], sampleRate);
-            fPhase = Tremolo::wrapPhase(fPhase);
-            phasePositions[static_cast<size_t>(channelIndex)][static_cast<size_t>(iBand)] = fPhase;
+        getTremoloComponent().applyBandTremolo(bandValues,
+            phasePositions,
+            channelIndex,
+            channelRates,
+            phaseOffsets,
+            choices,
+            pulseWidth,
+            channelDepths,
+            depthMode,
+            sampleRate);
+    }
 
-            fPhase = Tremolo::wrapPhase(fPhase + phaseOffsets[static_cast<size_t>(channelIndex)]);
-            const float fOscillator = Tremolo::getOscillatorValue(choices[static_cast<size_t>(iBand)], fPhase, pulseWidth);
-            const float fTremolo = Tremolo::getTremoloGain(fOscillator, channelDepths[static_cast<size_t>(iBand)], depthMode);
-
-            bandValues[static_cast<size_t>(iBand)] *= fTremolo;
-        }
+    static Tremolo& getTremoloComponent()
+    {
+        static Tremolo tremoloComponent;
+        return tremoloComponent;
     }
 
     void initialiseControls(juce::AudioProcessorValueTreeState& apvts, float fUiScale)

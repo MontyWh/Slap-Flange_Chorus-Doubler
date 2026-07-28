@@ -20,7 +20,7 @@
 
 ## Logic Placement
 - When moving logic to PluginExtra.h, only move DSP math/processing helpers there; keep UI-related logic and metadata out of PluginExtra.
-- Keep Tremolo.h for equations-only maths helpers, while orchestration/control-flow logic remains in Modulation.h.
+- Keep Chorus.h for equations-only maths helpers, while orchestration/control-flow logic remains in Modulation.h.
 - Encapsulate smoothing logic in Source/PluginExtra.h and invoke it from other files while preserving existing behaviour and code format.
 - Use grouped section header comments above logical code groups (not function/class-level header comments), while keeping key right-side inline comments for important DSP lines.
 - Comment headers must use a three-line separator format (//======================================================================, // <section title>, //======================================================================), and all comments must use UK spelling.
@@ -29,3 +29,6 @@
 - Use UK English wording throughout the code and comments.
 - Prefer inline end-of-line comments instead of separate comment lines when requesting code annotation.
 - Use meaningful comments only; remove generic filler comments. Add meaningful, non-filler comments across all project source files when requesting documentation updates.
+
+## Class Management
+- Follow explicit instruction-following; do not introduce new classes unless directly requested.
